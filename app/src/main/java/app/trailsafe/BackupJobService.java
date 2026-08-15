@@ -16,6 +16,7 @@ import org.json.JSONObject;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -99,8 +100,9 @@ public final class BackupJobService extends JobService {
                     counts.failed++;
                     continue;
                 }
-                File stageRoot = uniqueRoot(staging, safeName(sourceRoot.name), sourceValue);
-                stageFolder(sourceValue, sourceTree, sourceRoot.id, stageRoot, "", fingerprints, pending, counts);
+                File stageRoot = uniqueRoot(staging, sourceRoot.name, sourceValue);
+                stageFolder(staging, sourceValue, sourceTree, sourceRoot.id,
+                        stageRoot, "", fingerprints, pending, counts);
                 if (stageRoot.isDirectory()) uploadRoots.add(stageRoot);
             }
 
@@ -152,15 +154,16 @@ public final class BackupJobService extends JobService {
         return false;
     }
 
-    private void stageFolder(String sourceValue, Uri sourceTree, String sourceFolderId,
+    private void stageFolder(File stagingRoot, String sourceValue, Uri sourceTree, String sourceFolderId,
                              File stageFolder, String relativePath, JSONObject fingerprints,
                              Map<String, String> pending, Counts counts) throws Exception {
         for (Doc child : children(sourceTree, sourceFolderId)) {
             if (stopped) throw new InterruptedException("Backup stopped");
             String path = relativePath.isEmpty() ? child.name : relativePath + "/" + child.name;
             if (child.directory()) {
-                stageFolder(sourceValue, sourceTree, child.id,
-                        new File(stageFolder, safeName(child.name)), path, fingerprints, pending, counts);
+                stageFolder(stagingRoot, sourceValue, sourceTree, child.id,
+                        safeStageChild(stagingRoot, stageFolder, child.name),
+                        path, fingerprints, pending, counts);
                 continue;
             }
             String key = sourceValue + "\n" + path;
@@ -172,7 +175,7 @@ public final class BackupJobService extends JobService {
             if (!stageFolder.exists() && !stageFolder.mkdirs()) {
                 throw new IllegalStateException("Cannot stage " + path);
             }
-            File target = new File(stageFolder, safeName(child.name));
+            File target = safeStageChild(stagingRoot, stageFolder, child.name);
             try (InputStream input = getContentResolver().openInputStream(documentUri(sourceTree, child.id));
                  FileOutputStream output = new FileOutputStream(target)) {
                 if (input == null) throw new IllegalStateException("Cannot read " + path);
@@ -234,14 +237,28 @@ public final class BackupJobService extends JobService {
         return DocumentsContract.buildDocumentUriUsingTree(tree, id);
     }
 
-    private File uniqueRoot(File staging, String name, String sourceValue) {
-        File root = new File(staging, name);
+    private File uniqueRoot(File staging, String name, String sourceValue) throws IOException {
+        File root = safeStageChild(staging, staging, name);
         if (!root.exists()) return root;
-        return new File(staging, name + "-" + Integer.toHexString(sourceValue.hashCode()));
+        return safeStageChild(staging, staging,
+                name + "-" + Integer.toHexString(sourceValue.hashCode()));
     }
 
-    private String safeName(String name) {
-        return (name == null ? "unnamed" : name).replace('/', '_').replace('\0', '_');
+    static File safeStageChild(File stagingRoot, File parent, String name) throws IOException {
+        if (name == null || name.isEmpty() || name.equals(".") || name.equals("..")
+                || name.indexOf('/') >= 0 || name.indexOf('\0') >= 0) {
+            throw new SecurityException("Unsafe document name");
+        }
+        File root = stagingRoot.getCanonicalFile();
+        File canonicalParent = parent.getCanonicalFile();
+        if (!canonicalParent.toPath().startsWith(root.toPath())) {
+            throw new SecurityException("Staging path escaped backup folder");
+        }
+        File child = new File(canonicalParent, name).getCanonicalFile();
+        if (!canonicalParent.equals(child.getParentFile())) {
+            throw new SecurityException("Document name escaped its folder");
+        }
+        return child;
     }
 
     private boolean onWifi() {

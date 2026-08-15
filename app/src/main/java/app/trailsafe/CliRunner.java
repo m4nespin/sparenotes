@@ -65,9 +65,11 @@ final class CliRunner {
 
     static Result login(Context context, LineListener listener) {
         prepare(context);
-        Result result = runRaw(context, List.of("auth", "login"), listener);
-        if (result.success()) SessionVault.seal(context);
-        return result;
+        try {
+            return runRaw(context, List.of("auth", "login"), listener);
+        } finally {
+            SessionVault.sealIfNeeded(context);
+        }
     }
 
     static Result authenticated(Context context, String... arguments) {
