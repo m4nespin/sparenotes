@@ -1,4 +1,4 @@
-package app.trailsafe;
+package app.sparenotes;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
@@ -12,14 +12,14 @@ import java.util.Iterator;
 import java.util.Collections;
 import java.util.Set;
 
-final class TrailSafeStore {
-    private static final String PREFS = "trailsafe";
+final class SpareNotesStore {
+    private static final String PREFS = "sparenotes";
     private static final String SOURCES = "sources";
-    private static final String FINGERPRINTS = "fingerprints";
+    private static final String FINGERPRINTS = "fingerprints_sparenotes";
     static final String LAST_STATUS = "last_status";
     static final String LAST_RUN = "last_run";
 
-    private TrailSafeStore() {}
+    private SpareNotesStore() {}
 
     static SharedPreferences prefs(Context context) {
         return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);

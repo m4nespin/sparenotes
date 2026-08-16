@@ -1,4 +1,4 @@
-package app.trailsafe;
+package app.sparenotes;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
@@ -49,10 +49,10 @@ final class CliRunner {
     static synchronized void prepare(Context context) {
         File runtime = runtimeDirectory(context);
         if (!runtime.exists() && !runtime.mkdirs()) return;
-        String installed = TrailSafeStore.prefs(context).getString("runtime_version", null);
+        String installed = SpareNotesStore.prefs(context).getString("runtime_version", null);
         if (!RUNTIME_VERSION.equals(installed)) {
             for (String name : RUNTIME_FILES) copyAsset(context, "runtime/" + name, new File(runtime, name));
-            TrailSafeStore.prefs(context).edit().putString("runtime_version", RUNTIME_VERSION).commit();
+            SpareNotesStore.prefs(context).edit().putString("runtime_version", RUNTIME_VERSION).commit();
         }
         File data = dataDirectory(context);
         data.mkdirs();
@@ -147,7 +147,7 @@ final class CliRunner {
             int read;
             while ((read = input.read(buffer)) != -1) output.write(buffer, 0, read);
         } catch (Exception error) {
-            throw new IllegalStateException("Could not install TrailSafe runtime", error);
+            throw new IllegalStateException("Could not install SpareNotes runtime", error);
         }
     }
 }

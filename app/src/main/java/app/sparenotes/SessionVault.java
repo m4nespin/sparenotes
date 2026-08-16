@@ -1,4 +1,4 @@
-package app.trailsafe;
+package app.sparenotes;
 
 import android.content.Context;
 import android.security.keystore.KeyGenParameterSpec;
@@ -21,7 +21,7 @@ import javax.crypto.spec.GCMParameterSpec;
 
 final class SessionVault {
     private static final String KEYSTORE = "AndroidKeyStore";
-    private static final String KEY_ALIAS = "trailsafe_proton_session";
+    private static final String KEY_ALIAS = "sparenotes_proton_session";
 
     private SessionVault() {}
 
@@ -75,7 +75,7 @@ final class SessionVault {
             Files.write(plain.toPath(), cipher.doFinal(payload));
         } catch (Exception error) {
             plain.delete();
-            throw new IllegalStateException("Could not unlock Proton session; reconnect TrailSafe", error);
+            throw new IllegalStateException("Could not unlock Proton session; reconnect SpareNotes", error);
         }
     }
 

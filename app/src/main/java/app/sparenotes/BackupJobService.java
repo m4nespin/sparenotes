@@ -1,4 +1,4 @@
-package app.trailsafe;
+package app.sparenotes;
 
 import android.app.job.JobInfo;
 import android.app.job.JobParameters;

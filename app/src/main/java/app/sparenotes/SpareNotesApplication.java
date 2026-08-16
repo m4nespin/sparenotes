@@ -1,4 +1,4 @@
-package app.trailsafe;
+package app.sparenotes;
 
 import android.app.Application;
 import android.net.ConnectivityManager;
@@ -9,7 +9,7 @@ import android.net.NetworkRequest;
 import java.util.HashSet;
 import java.util.Set;
 
-public final class TrailSafeApplication extends Application {
+public final class SpareNotesApplication extends Application {
     private final Set<Network> wifiNetworks = new HashSet<>();
 
     @Override
@@ -47,7 +47,7 @@ public final class TrailSafeApplication extends Application {
             public void onLost(Network network) {
                 synchronized (wifiNetworks) {
                     if (wifiNetworks.remove(network) && wifiNetworks.isEmpty()) {
-                        BackupJobService.scheduleOnNextWifi(TrailSafeApplication.this);
+                        BackupJobService.scheduleOnNextWifi(SpareNotesApplication.this);
                     }
                 }
             }

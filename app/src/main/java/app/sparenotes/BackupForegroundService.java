@@ -1,4 +1,4 @@
-package app.trailsafe;
+package app.sparenotes;
 
 import android.app.Notification;
 import android.app.NotificationChannel;
@@ -29,9 +29,9 @@ public final class BackupForegroundService extends Service {
         try {
             context.startForegroundService(intent);
         } catch (RuntimeException error) {
-            TrailSafeStore.prefs(context).edit()
-                    .putString(TrailSafeStore.LAST_STATUS, "Backup deferred by Android")
-                    .putLong(TrailSafeStore.LAST_RUN, System.currentTimeMillis())
+            SpareNotesStore.prefs(context).edit()
+                    .putString(SpareNotesStore.LAST_STATUS, "Backup deferred by Android")
+                    .putLong(SpareNotesStore.LAST_RUN, System.currentTimeMillis())
                     .apply();
         }
     }
@@ -41,7 +41,7 @@ public final class BackupForegroundService extends Service {
         super.onCreate();
         NotificationManager manager = getSystemService(NotificationManager.class);
         manager.createNotificationChannel(new NotificationChannel(
-                CHANNEL, "TrailSafe backup", NotificationManager.IMPORTANCE_LOW));
+                CHANNEL, "SpareNotes backup", NotificationManager.IMPORTANCE_LOW));
     }
 
     @Override
@@ -52,7 +52,7 @@ public final class BackupForegroundService extends Service {
         running = true;
         stopped = false;
         PowerManager power = getSystemService(PowerManager.class);
-        wakeLock = power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "TrailSafe:backup");
+        wakeLock = power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "SpareNotes:backup");
         wakeLock.acquire(SIX_HOURS);
         executor.execute(() -> {
             try {
@@ -72,7 +72,7 @@ public final class BackupForegroundService extends Service {
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         Notification notification = new Notification.Builder(this, CHANNEL)
                 .setSmallIcon(R.drawable.ic_launcher)
-                .setContentTitle("TrailSafe")
+                .setContentTitle("SpareNotes")
                 .setContentText(message)
                 .setContentIntent(pending)
                 .setOngoing(true)

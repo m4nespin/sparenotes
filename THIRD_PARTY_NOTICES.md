@@ -1,6 +1,6 @@
 # Third-party notices
 
-TrailSafe includes or depends on these components:
+SpareNotes includes or depends on these components:
 
 ## Proton Drive CLI 0.8.0 and Proton Drive SDK
 
@@ -8,9 +8,9 @@ TrailSafe includes or depends on these components:
 - Official ARM64 musl binary: https://proton.me/download/drive/cli/0.8.0/linux-arm64-musl/proton-drive
 - License: MIT
 - Official binary SHA-512: `FB386CAB36BC346E8BAE1F3E79EFDD14810DE748E762A2C88F384016199FF7211304CC0EC4D220C260C67B83BBE4D3A8D4DD2A2EA0E93B9FDD25C1E42F448165`
-- TrailSafe-patched binary SHA-256: `3987BB50B3B3D7AF801AC0ABAF740BCD7E188656B84BB57CF314D85D9EA6F093`
+- SpareNotes-patched binary SHA-256: `3987BB50B3B3D7AF801AC0ABAF740BCD7E188656B84BB57CF314D85D9EA6F093`
 
-TrailSafe changes the bundled CLI's desktop browser opener to return immediately. Authentication URLs and QR codes are presented by the Android UI instead. The reproducible patch is `tools/patch-proton-cli.ps1`.
+SpareNotes changes the bundled CLI's desktop browser opener to return immediately. Authentication URLs and QR codes are presented by the Android UI instead. The reproducible patch is `tools/patch-proton-cli.ps1`.
 
 ## musl libc
 

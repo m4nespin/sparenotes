@@ -1,4 +1,4 @@
-package app.trailsafe;
+package app.sparenotes;
 
 import android.content.Context;
 import android.database.Cursor;
@@ -30,7 +30,7 @@ import java.util.regex.Pattern;
 
 final class BackupRunner {
     private static final String REMOTE_PARENT = "/my-files";
-    private static final String REMOTE_NAME = "TrailSafe";
+    private static final String REMOTE_NAME = "SpareNotes";
     private static final String REMOTE_PATH = REMOTE_PARENT + "/" + REMOTE_NAME;
     static final long BATCH_BYTES = 128L * 1024L * 1024L;
     static final int BATCH_FILES = 100;
@@ -51,7 +51,7 @@ final class BackupRunner {
     }
 
     boolean run() {
-        Set<String> sources = TrailSafeStore.sources(context);
+        Set<String> sources = SpareNotesStore.sources(context);
         if (sources.isEmpty()) return true;
         if (!CliRunner.connected(context)) {
             status("Connect Proton Drive to start backup");
@@ -70,7 +70,7 @@ final class BackupRunner {
         }
         status("Backup running…");
 
-        JSONObject fingerprints = TrailSafeStore.fingerprints(context);
+        JSONObject fingerprints = SpareNotesStore.fingerprints(context);
         Counts counts = new Counts();
         Set<String> usedRootNames = new HashSet<>();
         try {
@@ -198,7 +198,7 @@ final class BackupRunner {
         for (Map.Entry<String, String> entry : batch.pending.entrySet()) {
             batch.fingerprints.put(entry.getKey(), entry.getValue());
         }
-        TrailSafeStore.fingerprints(context, batch.fingerprints);
+        SpareNotesStore.fingerprints(context, batch.fingerprints);
         batch.counts.uploaded += batch.pending.size() - remotelySkipped;
         batch.counts.skipped += remotelySkipped;
         batch.pending.clear();
@@ -323,9 +323,9 @@ final class BackupRunner {
     }
 
     private void status(String value) {
-        TrailSafeStore.prefs(context).edit()
-                .putString(TrailSafeStore.LAST_STATUS, value)
-                .putLong(TrailSafeStore.LAST_RUN, System.currentTimeMillis())
+        SpareNotesStore.prefs(context).edit()
+                .putString(SpareNotesStore.LAST_STATUS, value)
+                .putLong(SpareNotesStore.LAST_RUN, System.currentTimeMillis())
                 .apply();
         progress.accept(value);
     }

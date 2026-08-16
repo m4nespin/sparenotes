@@ -12,11 +12,11 @@ val releaseSigning = Properties().apply {
 }
 
 android {
-    namespace = "app.trailsafe"
+    namespace = "app.sparenotes"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "app.trailsafe"
+        applicationId = "app.sparenotes"
         minSdk = 30
         targetSdk = 36
         versionCode = 1

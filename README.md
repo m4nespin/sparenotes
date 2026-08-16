@@ -1,36 +1,36 @@
-# TrailSafe
+# SpareNotes
 
-TrailSafe is a small, native Android app for automatic, one-way backup from selected Supernote Nomad folders to Proton Drive.
+SpareNotes is a small, native Android app for automatic, one-way backup from selected Supernote Nomad folders to Proton Drive.
 
 ## What it does
 
 - Lets you select exact internal-storage or microSD folders with Android's folder picker.
 - Recursively includes every file below each selected folder.
 - Runs only on Wi-Fi. Android schedules a run when Wi-Fi reconnects and once a day while it stays connected; **Back up now** starts a foreground backup immediately.
-- Uploads new files and replaces changed cloud copies under `/my-files/TrailSafe`.
+- Uploads new files and replaces changed cloud copies under `/my-files/SpareNotes`.
 - Never deletes a local file or a Proton Drive file. Removing a source or deleting a local file leaves its existing cloud copy untouched.
 - Stores a SHA-256 content fingerprint after each bounded upload batch for fast local checks. If that local history is lost, Proton's content digest still skips unchanged remote files.
 
-Android jobs are intentionally inexact and may be deferred while the Nomad sleeps. Active backups use a foreground service and wake lock so large transfers can finish after the screen sleeps. Android can miss a Wi-Fi disconnect while TrailSafe's process is stopped; the daily job remains the fallback.
+Android jobs are intentionally inexact and may be deferred while the Nomad sleeps. Active backups use a foreground service and wake lock so large transfers can finish after the screen sleeps. Android can miss a Wi-Fi disconnect while SpareNotes' process is stopped; the daily job remains the fallback.
 
 ## Nomad setup
 
 1. Enable **Settings → Security & Privacy → Sideloading**.
-2. Install the TrailSafe APK.
-3. Open TrailSafe and tap **Connect Proton Drive**.
+2. Install the SpareNotes APK.
+3. Open SpareNotes and tap **Connect Proton Drive**.
 4. Scan the one-time QR with a phone, sign in directly on Proton's page, and approve access.
 5. Tap **Add folder**, choose `disk` for the microSD card, open the desired folder, then tap **Use this folder**. Repeat for more folders.
 
-The official Proton Drive Android app is not required by TrailSafe.
+The official Proton Drive Android app is not required by SpareNotes.
 
 ## Security model
 
-- TrailSafe never receives or stores the Proton password. Authentication happens on Proton's HTTPS page.
+- SpareNotes never receives or stores the Proton password. Authentication happens on Proton's HTTPS page.
 - It uses Proton's official Drive CLI/SDK for authentication, encryption, and uploads.
-- The CLI session is encrypted at rest with an Android Keystore AES-256-GCM key. Plaintext exists only in TrailSafe's private app directory while a Proton command is active.
+- The CLI session is encrypted at rest with an Android Keystore AES-256-GCM key. Plaintext exists only in SpareNotes' private app directory while a Proton command is active.
 - Android backups are disabled and cleartext network traffic is blocked.
 - A tiny compatibility wrapper converts syscalls rejected by Android's app sandbox to `ENOSYS`; it does not grant or bypass Android permissions.
-- The bundled CLI has one source-level byte patch: its desktop-only `xdg-open` call returns immediately because TrailSafe itself renders the one-time URL and QR. See `tools/patch-proton-cli.ps1`.
+- The bundled CLI has one source-level byte patch: its desktop-only `xdg-open` call returns immediately because SpareNotes itself renders the one-time URL and QR. See `tools/patch-proton-cli.ps1`.
 
 ## Build
 

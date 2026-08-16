@@ -14,6 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "TrailSafe"
+rootProject.name = "SpareNotes"
 include(":app")
-

@@ -2,7 +2,7 @@ $ErrorActionPreference = "Stop"
 
 $projectRoot = Split-Path $PSScriptRoot -Parent
 $signingDirectory = Join-Path $projectRoot ".release-signing"
-$keystore = Join-Path $signingDirectory "trailsafe-release.p12"
+$keystore = Join-Path $signingDirectory "sparenotes-release.p12"
 $properties = Join-Path $signingDirectory "keystore.properties"
 
 if ((Test-Path -LiteralPath $keystore) -or (Test-Path -LiteralPath $properties)) {
@@ -20,17 +20,17 @@ try {
         -storetype PKCS12 `
         -storepass $password `
         -keypass $password `
-        -alias trailsafe `
+        -alias sparenotes `
         -keyalg RSA `
         -keysize 4096 `
         -validity 10000 `
-        -dname "CN=TrailSafe Release, O=TrailSafe"
+        -dname "CN=SpareNotes Release, O=SpareNotes"
     if ($LASTEXITCODE -ne 0) { throw "keytool failed with exit code $LASTEXITCODE" }
 
     [IO.File]::WriteAllLines($properties, @(
-        "storeFile=.release-signing/trailsafe-release.p12"
+        "storeFile=.release-signing/sparenotes-release.p12"
         "storePassword=$password"
-        "keyAlias=trailsafe"
+        "keyAlias=sparenotes"
         "keyPassword=$password"
     ))
 } catch {
@@ -51,4 +51,4 @@ try {
 if ($LASTEXITCODE -ne 0) { throw "Could not restrict release signing file permissions" }
 
 Write-Host "Release key created in $signingDirectory"
-Write-Host "Back up this directory securely before publishing TrailSafe."
+Write-Host "Back up this directory securely before publishing SpareNotes."

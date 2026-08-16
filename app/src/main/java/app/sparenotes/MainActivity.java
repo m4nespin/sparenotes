@@ -1,4 +1,4 @@
-package app.trailsafe;
+package app.sparenotes;
 
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
@@ -33,7 +33,7 @@ import java.util.concurrent.Executors;
 
 public final class MainActivity extends Activity {
     private static final int PICK_SOURCE = 10;
-    private static final String CLOUD_PATH = "/my-files/TrailSafe";
+    private static final String CLOUD_PATH = "/my-files/SpareNotes";
 
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private LinearLayout content;
@@ -67,7 +67,7 @@ public final class MainActivity extends Activity {
         content.setPadding(dp(24), dp(28), dp(24), dp(40));
         scroll.addView(content);
 
-        TextView title = text("TrailSafe", 30);
+        TextView title = text("SpareNotes", 30);
         title.setTextColor(Color.BLACK);
         content.addView(title);
         content.addView(text("Automatic, Wi-Fi-only backup to Proton Drive", 16));
@@ -89,10 +89,10 @@ public final class MainActivity extends Activity {
 
         spacer(24);
         section("2. SD card folders");
-        if (TrailSafeStore.sources(this).isEmpty()) {
+        if (SpareNotesStore.sources(this).isEmpty()) {
             content.addView(text("No source folders selected.", 16));
         } else {
-            for (String source : TrailSafeStore.sources(this)) addSourceRow(source);
+            for (String source : SpareNotesStore.sources(this)) addSourceRow(source);
         }
         addButton("Add folder", v -> pickSource());
 
@@ -107,8 +107,8 @@ public final class MainActivity extends Activity {
             render();
         });
 
-        String status = TrailSafeStore.prefs(this).getString(TrailSafeStore.LAST_STATUS, "Not run yet");
-        long lastRun = TrailSafeStore.prefs(this).getLong(TrailSafeStore.LAST_RUN, 0);
+        String status = SpareNotesStore.prefs(this).getString(SpareNotesStore.LAST_STATUS, "Not run yet");
+        long lastRun = SpareNotesStore.prefs(this).getLong(SpareNotesStore.LAST_RUN, 0);
         String when = lastRun == 0 ? "" : "\n" + DateFormat.getDateTimeInstance().format(new Date(lastRun));
         TextView statusView = text(status + when, 14);
         statusView.setPadding(0, dp(14), 0, 0);
@@ -219,8 +219,8 @@ public final class MainActivity extends Activity {
         Button remove = new Button(this);
         remove.setText(R.string.remove);
         remove.setOnClickListener(v -> {
-            TrailSafeStore.removeSource(this, source);
-            TrailSafeStore.forgetSourceFingerprints(this, source);
+            SpareNotesStore.removeSource(this, source);
+            SpareNotesStore.forgetSourceFingerprints(this, source);
             releaseSourcePermission(Uri.parse(source));
             render();
         });
@@ -229,7 +229,7 @@ public final class MainActivity extends Activity {
     }
 
     private void releaseUnusedSourcePermissions() {
-        Set<String> sources = TrailSafeStore.sources(this);
+        Set<String> sources = SpareNotesStore.sources(this);
         for (UriPermission permission : getContentResolver().getPersistedUriPermissions()) {
             if (!sources.contains(permission.getUri().toString())) {
                 releaseSourcePermission(permission.getUri());
@@ -249,7 +249,7 @@ public final class MainActivity extends Activity {
             Toast.makeText(this, "Connect Proton Drive first.", Toast.LENGTH_LONG).show();
             return false;
         }
-        if (TrailSafeStore.sources(this).isEmpty()) {
+        if (SpareNotesStore.sources(this).isEmpty()) {
             Toast.makeText(this, "Add at least one source folder.", Toast.LENGTH_LONG).show();
             return false;
         }
@@ -275,7 +275,7 @@ public final class MainActivity extends Activity {
         Uri uri = data.getData();
         try {
             getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            TrailSafeStore.addSource(this, uri.toString());
+            SpareNotesStore.addSource(this, uri.toString());
             if (CliRunner.connected(this)) BackupJobService.scheduleNow(this);
             render();
         } catch (SecurityException error) {
