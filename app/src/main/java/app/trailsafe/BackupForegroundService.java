@@ -1,0 +1,102 @@
+package app.trailsafe;
+
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.app.Service;
+import android.content.Context;
+import android.content.Intent;
+import android.content.pm.ServiceInfo;
+import android.os.Build;
+import android.os.IBinder;
+import android.os.PowerManager;
+
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+public final class BackupForegroundService extends Service {
+    private static final String CHANNEL = "backup";
+    private static final int NOTIFICATION = 7103;
+    private static final long SIX_HOURS = 6L * 60L * 60L * 1000L;
+
+    private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private volatile boolean stopped;
+    private boolean running;
+    private PowerManager.WakeLock wakeLock;
+
+    static void start(Context context) {
+        Intent intent = new Intent(context, BackupForegroundService.class);
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) context.startForegroundService(intent);
+            else context.startService(intent);
+        } catch (RuntimeException error) {
+            TrailSafeStore.prefs(context).edit()
+                    .putString(TrailSafeStore.LAST_STATUS, "Backup deferred by Android")
+                    .putLong(TrailSafeStore.LAST_RUN, System.currentTimeMillis())
+                    .apply();
+        }
+    }
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        NotificationManager manager = getSystemService(NotificationManager.class);
+        manager.createNotificationChannel(new NotificationChannel(
+                CHANNEL, "TrailSafe backup", NotificationManager.IMPORTANCE_LOW));
+    }
+
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        showNotification("Backup starting…");
+        if (running) return START_NOT_STICKY;
+
+        running = true;
+        stopped = false;
+        PowerManager power = getSystemService(PowerManager.class);
+        wakeLock = power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "TrailSafe:backup");
+        wakeLock.acquire(SIX_HOURS);
+        executor.execute(() -> {
+            try {
+                new BackupRunner(this, () -> stopped, this::showNotification).run();
+            } finally {
+                if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
+                stopForeground(true);
+                stopSelf();
+            }
+        });
+        return START_NOT_STICKY;
+    }
+
+    private void showNotification(String message) {
+        Intent open = new Intent(this, MainActivity.class);
+        PendingIntent pending = PendingIntent.getActivity(this, 0, open,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        Notification notification = new Notification.Builder(this, CHANNEL)
+                .setSmallIcon(R.drawable.ic_launcher)
+                .setContentTitle("TrailSafe")
+                .setContentText(message)
+                .setContentIntent(pending)
+                .setOngoing(true)
+                .build();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(NOTIFICATION, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
+        } else {
+            startForeground(NOTIFICATION, notification);
+        }
+    }
+
+    @Override
+    public void onDestroy() {
+        stopped = true;
+        CliRunner.cancelActive();
+        executor.shutdownNow();
+        if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
+        super.onDestroy();
+    }
+
+    @Override
+    public IBinder onBind(Intent intent) {
+        return null;
+    }
+}

@@ -1,6 +1,8 @@
 package app.trailsafe;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import org.junit.Rule;
@@ -9,7 +11,7 @@ import org.junit.rules.TemporaryFolder;
 
 import java.io.File;
 
-public final class BackupJobServiceTest {
+public final class BackupRunnerTest {
     @Rule
     public final TemporaryFolder temporary = new TemporaryFolder();
 
@@ -19,7 +21,7 @@ public final class BackupJobServiceTest {
         File parent = new File(root, "folder");
 
         assertEquals(new File(parent, "note.pdf").getCanonicalFile(),
-                BackupJobService.safeStageChild(root, parent, "note.pdf"));
+                BackupRunner.safeStageChild(root, parent, "note.pdf"));
     }
 
     @Test
@@ -27,7 +29,7 @@ public final class BackupJobServiceTest {
         File root = temporary.newFolder("staging");
 
         try {
-            BackupJobService.safeStageChild(root, root, "..");
+            BackupRunner.safeStageChild(root, root, "..");
             fail("Expected traversal name to be rejected");
         } catch (SecurityException expected) {
             // Expected.
@@ -40,10 +42,17 @@ public final class BackupJobServiceTest {
         File outside = temporary.newFolder("outside");
 
         try {
-            BackupJobService.safeStageChild(root, outside, "session.json");
+            BackupRunner.safeStageChild(root, outside, "session.json");
             fail("Expected escaped parent to be rejected");
         } catch (SecurityException expected) {
             // Expected.
         }
+    }
+
+    @Test
+    public void batchFlushesAtEitherLimit() {
+        assertFalse(BackupRunner.shouldFlush(BackupRunner.BATCH_BYTES - 1, BackupRunner.BATCH_FILES - 1));
+        assertTrue(BackupRunner.shouldFlush(BackupRunner.BATCH_BYTES, 1));
+        assertTrue(BackupRunner.shouldFlush(1, BackupRunner.BATCH_FILES));
     }
 }

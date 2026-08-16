@@ -92,7 +92,7 @@ public final class MainActivity extends Activity {
         addButton("Back up now", v -> {
             if (!ready()) return;
             BackupJobService.scheduleNow(this);
-            Toast.makeText(this, "Queued. TrailSafe waits for Wi-Fi.", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Backup started. Keep Wi-Fi connected.", Toast.LENGTH_LONG).show();
             render();
         });
 
