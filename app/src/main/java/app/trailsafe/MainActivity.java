@@ -40,7 +40,7 @@ public final class MainActivity extends Activity {
     protected void onCreate(Bundle state) {
         super.onCreate(state);
         render();
-        BackupJobService.schedulePeriodic(this);
+        BackupJobService.scheduleDaily(this);
     }
 
     @Override

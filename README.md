@@ -6,12 +6,12 @@ TrailSafe is a small, native Android app for automatic, one-way backup from sele
 
 - Lets you select exact internal-storage or microSD folders with Android's folder picker.
 - Recursively includes every file below each selected folder.
-- Runs only when the active network is Wi-Fi. Android schedules a run roughly every 15 minutes; **Back up now** starts a foreground backup immediately.
+- Runs only on Wi-Fi. Android schedules a run when Wi-Fi reconnects and once a day while it stays connected; **Back up now** starts a foreground backup immediately.
 - Uploads new files and replaces changed cloud copies under `/my-files/TrailSafe`.
 - Never deletes a local file or a Proton Drive file. Removing a source or deleting a local file leaves its existing cloud copy untouched.
 - Stores file size and modification time after each bounded upload batch, so interrupted backups resume and unchanged files are skipped.
 
-Android jobs are intentionally inexact and may be deferred while the Nomad sleeps. Active backups use a foreground service and wake lock so large transfers can finish after the screen sleeps.
+Android jobs are intentionally inexact and may be deferred while the Nomad sleeps. Active backups use a foreground service and wake lock so large transfers can finish after the screen sleeps. Android can miss a Wi-Fi disconnect while TrailSafe's process is stopped; the daily job remains the fallback.
 
 ## Nomad setup
 

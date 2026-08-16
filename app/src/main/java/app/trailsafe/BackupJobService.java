@@ -5,21 +5,36 @@ import android.app.job.JobParameters;
 import android.app.job.JobScheduler;
 import android.app.job.JobService;
 import android.content.ComponentName;
+import android.net.NetworkCapabilities;
+import android.net.NetworkRequest;
 
 public final class BackupJobService extends JobService {
-    private static final int PERIODIC_JOB = 7101;
-    private static final int LEGACY_NOW_JOB = 7102;
-    private static final long FIFTEEN_MINUTES = 15L * 60L * 1000L;
+    private static final int DAILY_JOB = 7101;
+    private static final int WIFI_ARRIVAL_JOB = 7102;
+    private static final long ONE_DAY = 24L * 60L * 60L * 1000L;
 
-    static void schedulePeriodic(android.content.Context context) {
+    static void scheduleDaily(android.content.Context context) {
         JobScheduler scheduler = context.getSystemService(JobScheduler.class);
-        scheduler.cancel(LEGACY_NOW_JOB);
-        JobInfo job = new JobInfo.Builder(PERIODIC_JOB, new ComponentName(context, BackupJobService.class))
-                .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+        JobInfo job = wifiJob(DAILY_JOB, context)
                 .setPersisted(true)
-                .setPeriodic(FIFTEEN_MINUTES)
+                .setPeriodic(ONE_DAY)
                 .build();
         scheduler.schedule(job);
+    }
+
+    static void scheduleOnNextWifi(android.content.Context context) {
+        JobScheduler scheduler = context.getSystemService(JobScheduler.class);
+        if (scheduler.getPendingJob(WIFI_ARRIVAL_JOB) != null) return;
+        scheduler.schedule(wifiJob(WIFI_ARRIVAL_JOB, context).setPersisted(true).build());
+    }
+
+    private static JobInfo.Builder wifiJob(int id, android.content.Context context) {
+        NetworkRequest wifi = new NetworkRequest.Builder()
+                .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .build();
+        return new JobInfo.Builder(id, new ComponentName(context, BackupJobService.class))
+                .setRequiredNetwork(wifi);
     }
 
     static void scheduleNow(android.content.Context context) {
