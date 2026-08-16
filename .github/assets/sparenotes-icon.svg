@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" role="img" aria-labelledby="title desc">
+  <title id="title">SpareNotes app icon</title>
+  <desc id="desc">A note and an upward backup arrow on a white rounded square.</desc>
+  <rect x="6" y="6" width="96" height="96" rx="22" fill="#fff"/>
+  <g
+    fill="none"
+    stroke="#111"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    stroke-width="6"
+    transform="translate(-5.4 -5.4) scale(1.1)"
+  >
+    <path d="M27 31v56h41"/>
+    <path d="M35 21h27l16 16v42H35zM62 21v16h16"/>
+    <path d="m47 57 9.5-9.5L66 57M56.5 48v21"/>
+  </g>
+</svg>

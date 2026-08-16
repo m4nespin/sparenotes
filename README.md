@@ -1,6 +1,22 @@
-# SpareNotes
+<div align="center">
+  <h1>SpareNotes</h1>
+  <p><strong>Automatic, one-way Supernote backups to Proton Drive.</strong></p>
+  <img src=".github/assets/sparenotes-icon.svg" alt="SpareNotes app icon" width="240">
+  <p>
+    <a href="https://github.com/m4nespin/sparenotes/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/m4nespin/sparenotes?label=release"></a>
+    <a href="https://github.com/m4nespin/sparenotes/actions/workflows/ci.yml"><img alt="CI status" src="https://github.com/m4nespin/sparenotes/actions/workflows/ci.yml/badge.svg"></a>
+    <a href="./LICENSE"><img alt="License" src="https://img.shields.io/github/license/m4nespin/sparenotes"></a>
+  </p>
+  <p>
+    <a href="#download-and-install">Download</a> ·
+    <a href="#what-it-does">Features</a> ·
+    <a href="#nomad-setup">Setup</a> ·
+    <a href="#security-model">Security</a> ·
+    <a href="#build-from-source">Build</a>
+  </p>
+</div>
 
-SpareNotes is a small, native Android app for automatic, one-way backup from selected Supernote Nomad folders to Proton Drive.
+SpareNotes is a small, native Android app for automatic backup from selected Supernote Nomad folders to Proton Drive.
 
 ## Download and install
 
