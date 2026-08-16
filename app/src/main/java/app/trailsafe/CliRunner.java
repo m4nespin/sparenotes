@@ -1,5 +1,6 @@
 package app.trailsafe;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 
 import java.io.BufferedReader;
@@ -44,6 +45,7 @@ final class CliRunner {
 
     private CliRunner() {}
 
+    @SuppressLint("ApplySharedPref") // Runtime install must be durable before commands start.
     static synchronized void prepare(Context context) {
         File runtime = runtimeDirectory(context);
         if (!runtime.exists() && !runtime.mkdirs()) return;
@@ -63,7 +65,7 @@ final class CliRunner {
         return SessionVault.connected(context);
     }
 
-    static Result login(Context context, LineListener listener) {
+    static synchronized Result login(Context context, LineListener listener) {
         prepare(context);
         try {
             return runRaw(context, List.of("auth", "login"), listener);
@@ -72,7 +74,7 @@ final class CliRunner {
         }
     }
 
-    static Result authenticated(Context context, String... arguments) {
+    static synchronized Result authenticated(Context context, String... arguments) {
         prepare(context);
         SessionVault.unseal(context);
         try {

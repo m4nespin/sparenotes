@@ -8,7 +8,6 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ServiceInfo;
-import android.os.Build;
 import android.os.IBinder;
 import android.os.PowerManager;
 
@@ -28,8 +27,7 @@ public final class BackupForegroundService extends Service {
     static void start(Context context) {
         Intent intent = new Intent(context, BackupForegroundService.class);
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) context.startForegroundService(intent);
-            else context.startService(intent);
+            context.startForegroundService(intent);
         } catch (RuntimeException error) {
             TrailSafeStore.prefs(context).edit()
                     .putString(TrailSafeStore.LAST_STATUS, "Backup deferred by Android")
@@ -61,7 +59,7 @@ public final class BackupForegroundService extends Service {
                 new BackupRunner(this, () -> stopped, this::showNotification).run();
             } finally {
                 if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
-                stopForeground(true);
+                stopForeground(STOP_FOREGROUND_REMOVE);
                 stopSelf();
             }
         });
@@ -79,11 +77,7 @@ public final class BackupForegroundService extends Service {
                 .setContentIntent(pending)
                 .setOngoing(true)
                 .build();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(NOTIFICATION, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
-        } else {
-            startForeground(NOTIFICATION, notification);
-        }
+        startForeground(NOTIFICATION, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
     }
 
     @Override

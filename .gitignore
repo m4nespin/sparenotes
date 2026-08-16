@@ -6,3 +6,4 @@ local.properties
 work/
 *.iml
 app/src/main/jniLibs/arm64-v8a/libproton_drive_cli.so
+.release-signing/

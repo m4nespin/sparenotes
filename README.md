@@ -34,7 +34,7 @@ The official Proton Drive Android app is not required by TrailSafe.
 
 ## Build
 
-Requirements: JDK 17+, Android SDK 35, and Android NDK 27 only when rebuilding the compatibility wrapper.
+Requirements: JDK 17+, Android SDK 36, and Android NDK 27 only when rebuilding the compatibility wrapper.
 
 The first build downloads Proton Drive CLI 0.6.0 from Proton, verifies its official SHA-512 checksum, applies the Android browser-launch patch, and verifies the patched SHA-256 checksum. The 110 MB generated binary is intentionally excluded from Git.
 
@@ -44,7 +44,14 @@ The first build downloads Proton Drive CLI 0.6.0 from Proton, verifies its offic
 
 The debug APK is for development only. It is debuggable and must not be installed on a device holding Proton data.
 
-For deployment, use **Android Studio → Build → Generate Signed Bundle / APK → APK → release**. Install only the resulting signed, non-debuggable release APK.
+Create the release signing key once, then back up `.release-signing` somewhere secure. Losing this key prevents future in-place updates.
+
+```powershell
+.\tools\setup-release-key.ps1
+.\gradlew.bat assembleRelease
+```
+
+Install only the resulting signed, non-debuggable release APK.
 
 To rebuild the ARM64 compatibility wrapper with NDK 27:
 

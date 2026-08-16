@@ -26,7 +26,7 @@ final class SessionVault {
     private SessionVault() {}
 
     static boolean connected(Context context) {
-        return encrypted(context).isFile() || plaintext(context).isFile();
+        return encrypted(context).isFile();
     }
 
     static synchronized void sealIfNeeded(Context context) {

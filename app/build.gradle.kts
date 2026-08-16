@@ -1,18 +1,24 @@
 import java.net.URI
 import java.security.MessageDigest
+import java.util.Properties
 
 plugins {
     id("com.android.application")
 }
 
+val releaseSigningFile = rootProject.file(".release-signing/keystore.properties")
+val releaseSigning = Properties().apply {
+    if (releaseSigningFile.isFile) releaseSigningFile.inputStream().use(::load)
+}
+
 android {
     namespace = "app.trailsafe"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "app.trailsafe"
         minSdk = 30
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
     }
@@ -22,6 +28,17 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    signingConfigs {
+        if (releaseSigningFile.isFile) {
+            create("release") {
+                storeFile = rootProject.file(releaseSigning.getProperty("storeFile"))
+                storePassword = releaseSigning.getProperty("storePassword")
+                keyAlias = releaseSigning.getProperty("keyAlias")
+                keyPassword = releaseSigning.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
@@ -29,6 +46,7 @@ android {
         }
         release {
             isDebuggable = false
+            signingConfig = signingConfigs.findByName("release")
         }
     }
 

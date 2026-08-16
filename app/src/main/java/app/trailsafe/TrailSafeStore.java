@@ -1,5 +1,6 @@
 package app.trailsafe;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.SharedPreferences;
 
@@ -48,6 +49,7 @@ final class TrailSafeStore {
         }
     }
 
+    @SuppressLint("ApplySharedPref") // Upload checkpoint must be durable before staging is deleted.
     static void fingerprints(Context context, JSONObject fingerprints) {
         // ponytail: SharedPreferences is enough for a few thousand files; move to Room if scans become slow.
         prefs(context).edit().putString(FINGERPRINTS, fingerprints.toString()).commit();
