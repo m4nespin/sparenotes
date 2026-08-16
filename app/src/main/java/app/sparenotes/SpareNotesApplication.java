@@ -15,6 +15,7 @@ public final class SpareNotesApplication extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
+        SpareNotesStore.prefs(this).edit().putBoolean(SpareNotesStore.BACKUP_RUNNING, false).apply();
         CliRunner.prepare(this);
         watchWifi();
     }

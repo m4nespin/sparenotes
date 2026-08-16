@@ -3,6 +3,7 @@ package app.sparenotes;
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.UriPermission;
 import android.database.Cursor;
 import android.graphics.Bitmap;
@@ -36,6 +37,14 @@ public final class MainActivity extends Activity {
     private static final String CLOUD_PATH = "/my-files/SpareNotes";
 
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private final SharedPreferences.OnSharedPreferenceChangeListener backupListener =
+            (preferences, key) -> {
+                if (SpareNotesStore.LAST_STATUS.equals(key)
+                        || SpareNotesStore.LAST_RUN.equals(key)
+                        || SpareNotesStore.BACKUP_RUNNING.equals(key)) {
+                    runOnUiThread(this::render);
+                }
+            };
     private LinearLayout content;
     private volatile boolean connecting;
     private String loginUrl;
@@ -53,6 +62,18 @@ public final class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         if (content != null) render();
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        SpareNotesStore.prefs(this).registerOnSharedPreferenceChangeListener(backupListener);
+    }
+
+    @Override
+    protected void onStop() {
+        SpareNotesStore.prefs(this).unregisterOnSharedPreferenceChangeListener(backupListener);
+        super.onStop();
     }
 
     private void render() {
@@ -100,12 +121,15 @@ public final class MainActivity extends Activity {
         section("Backup");
         content.addView(text("Cloud destination: " + CLOUD_PATH, 15));
         content.addView(text("All files included. Existing cloud files are never deleted. Changed files replace their cloud copy.", 15));
-        addButton("Back up now", v -> {
+        boolean backupRunning = SpareNotesStore.prefs(this)
+                .getBoolean(SpareNotesStore.BACKUP_RUNNING, false);
+        Button backupButton = addButton("Back up now", v -> {
             if (!ready()) return;
             BackupJobService.scheduleNow(this);
             Toast.makeText(this, "Backup started. Keep Wi-Fi connected.", Toast.LENGTH_LONG).show();
             render();
         });
+        backupButton.setEnabled(!backupRunning);
 
         String status = SpareNotesStore.prefs(this).getString(SpareNotesStore.LAST_STATUS, "Not run yet");
         long lastRun = SpareNotesStore.prefs(this).getLong(SpareNotesStore.LAST_RUN, 0);
@@ -307,7 +331,7 @@ public final class MainActivity extends Activity {
         content.addView(view);
     }
 
-    private void addButton(String label, View.OnClickListener listener) {
+    private Button addButton(String label, View.OnClickListener listener) {
         Button button = new Button(this);
         button.setText(label);
         button.setAllCaps(false);
@@ -317,6 +341,7 @@ public final class MainActivity extends Activity {
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         params.topMargin = dp(10);
         content.addView(button, params);
+        return button;
     }
 
     private TextView text(String value, int size) {

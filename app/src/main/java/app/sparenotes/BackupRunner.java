@@ -68,12 +68,14 @@ final class BackupRunner {
             status("Backup failed: cannot create staging folder");
             return false;
         }
-        status("Backup running…");
+        status("Counting files…");
 
         JSONObject fingerprints = SpareNotesStore.fingerprints(context);
         Counts counts = new Counts();
         Set<String> usedRootNames = new HashSet<>();
         try {
+            counts.totalFiles = countFiles(sources);
+            status(counts.progress());
             for (String sourceValue : sources) {
                 checkStopped();
                 Uri sourceTree = Uri.parse(sourceValue);
@@ -101,6 +103,39 @@ final class BackupRunner {
             return false;
         } finally {
             deleteRecursively(staging);
+        }
+    }
+
+    private int countFiles(Set<String> sources) throws Exception {
+        Counts counts = new Counts();
+        for (String sourceValue : sources) {
+            checkStopped();
+            Uri sourceTree = Uri.parse(sourceValue);
+            Doc sourceRoot = readDocument(rootDocument(sourceTree));
+            if (sourceRoot != null) {
+                countFolder(sourceTree, sourceRoot.id, counts, new HashSet<>(), 0);
+            }
+        }
+        return counts.totalFiles;
+    }
+
+    private void countFolder(Uri sourceTree, String sourceFolderId, Counts counts,
+                             Set<String> ancestors, int depth) throws Exception {
+        enterFolder(ancestors, sourceFolderId, depth);
+        try {
+            for (Doc child : children(sourceTree, sourceFolderId)) {
+                checkStopped();
+                if (++counts.documents > MAX_DOCUMENTS) {
+                    throw new SecurityException("Backup contains too many documents");
+                }
+                if (child.directory()) {
+                    countFolder(sourceTree, child.id, counts, ancestors, depth + 1);
+                } else {
+                    counts.totalFiles++;
+                }
+            }
+        } finally {
+            ancestors.remove(sourceFolderId);
         }
     }
 
@@ -183,7 +218,7 @@ final class BackupRunner {
         if (batch.pending.isEmpty()) return;
         checkStopped();
         ensureRemoteFolder();
-        progress.accept("Checking " + batch.pending.size() + " files…");
+        status(batch.counts.progress());
         CliRunner.Result upload = CliRunner.authenticated(context,
                 "filesystem", "upload",
                 "--json",
@@ -204,7 +239,7 @@ final class BackupRunner {
         batch.pending.clear();
         batch.bytes = 0;
         deleteRecursively(batch.root);
-        status(batch.counts.uploaded + " uploaded; backup running…");
+        status(batch.counts.progress());
     }
 
     static boolean shouldFlush(long bytes, int files) {
@@ -217,6 +252,10 @@ final class BackupRunner {
         int skipped = Integer.parseInt(match.group(1));
         if (skipped > candidates) throw new IOException("Invalid Proton skipped-file count");
         return skipped;
+    }
+
+    static int remainingFiles(int total, int uploaded, int skipped) {
+        return Math.max(0, total - uploaded - skipped);
     }
 
     private void ensureRemoteFolder() throws IOException {
@@ -384,6 +423,12 @@ final class BackupRunner {
         int skipped;
         int failed;
         int documents;
+        int totalFiles;
+
+        String progress() {
+            return uploaded + " uploaded, "
+                    + remainingFiles(totalFiles, uploaded, skipped) + " left";
+        }
 
         String summary() {
             return uploaded + " uploaded, " + skipped + " unchanged"

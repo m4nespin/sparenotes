@@ -68,6 +68,12 @@ public final class BackupRunnerTest {
     }
 
     @Test
+    public void remainingFilesExcludeUploadsAndSkips() {
+        assertEquals(5, BackupRunner.remainingFiles(12, 4, 3));
+        assertEquals(0, BackupRunner.remainingFiles(12, 13, 0));
+    }
+
+    @Test
     public void fingerprintsContentNotMetadata() throws Exception {
         ByteArrayOutputStream firstCopy = new ByteArrayOutputStream();
         ByteArrayOutputStream secondCopy = new ByteArrayOutputStream();

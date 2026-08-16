@@ -25,11 +25,21 @@ public final class BackupForegroundService extends Service {
     private PowerManager.WakeLock wakeLock;
 
     static void start(Context context) {
+        boolean alreadyRunning = SpareNotesStore.prefs(context)
+                .getBoolean(SpareNotesStore.BACKUP_RUNNING, false);
+        android.content.SharedPreferences.Editor state = SpareNotesStore.prefs(context).edit()
+                .putBoolean(SpareNotesStore.BACKUP_RUNNING, true);
+        if (!alreadyRunning) {
+            state.putString(SpareNotesStore.LAST_STATUS, "Backup starting…")
+                    .putLong(SpareNotesStore.LAST_RUN, System.currentTimeMillis());
+        }
+        state.apply();
         Intent intent = new Intent(context, BackupForegroundService.class);
         try {
             context.startForegroundService(intent);
         } catch (RuntimeException error) {
             SpareNotesStore.prefs(context).edit()
+                    .putBoolean(SpareNotesStore.BACKUP_RUNNING, false)
                     .putString(SpareNotesStore.LAST_STATUS, "Backup deferred by Android")
                     .putLong(SpareNotesStore.LAST_RUN, System.currentTimeMillis())
                     .apply();
@@ -58,6 +68,9 @@ public final class BackupForegroundService extends Service {
             try {
                 new BackupRunner(this, () -> stopped, this::showNotification).run();
             } finally {
+                SpareNotesStore.prefs(this).edit()
+                        .putBoolean(SpareNotesStore.BACKUP_RUNNING, false)
+                        .apply();
                 if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
                 stopForeground(STOP_FOREGROUND_REMOVE);
                 stopSelf();
@@ -83,6 +96,9 @@ public final class BackupForegroundService extends Service {
     @Override
     public void onDestroy() {
         stopped = true;
+        SpareNotesStore.prefs(this).edit()
+                .putBoolean(SpareNotesStore.BACKUP_RUNNING, false)
+                .apply();
         CliRunner.cancelActive();
         executor.shutdownNow();
         if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
