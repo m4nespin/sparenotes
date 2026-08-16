@@ -2,13 +2,13 @@
 
 TrailSafe includes or depends on these components:
 
-## Proton Drive CLI 0.6.0 and Proton Drive SDK
+## Proton Drive CLI 0.8.0 and Proton Drive SDK
 
-- Project: https://github.com/ProtonDriveApps/cli-drive
-- Official ARM64 musl binary: https://proton.me/download/drive/cli/0.6.0/linux-arm64-musl/proton-drive
+- Project: https://github.com/ProtonDriveApps/sdk
+- Official ARM64 musl binary: https://proton.me/download/drive/cli/0.8.0/linux-arm64-musl/proton-drive
 - License: MIT
-- Official binary SHA-512: `34831CFCC0EA46C331BD48635E5B2E882483FDB70BFC4FC5C273C8CDD2CEDDB6026296F25C7222E4B235D8A88AA15669B6E1C9FF40B9A2AF081EE279B83289C2`
-- TrailSafe-patched binary SHA-256: `23E372DF3F66CC625EC0A6962D331ACA8A22B1E22564B8F929A3C3760C1CD387`
+- Official binary SHA-512: `FB386CAB36BC346E8BAE1F3E79EFDD14810DE748E762A2C88F384016199FF7211304CC0EC4D220C260C67B83BBE4D3A8D4DD2A2EA0E93B9FDD25C1E42F448165`
+- TrailSafe-patched binary SHA-256: `3987BB50B3B3D7AF801AC0ABAF740BCD7E188656B84BB57CF314D85D9EA6F093`
 
 TrailSafe changes the bundled CLI's desktop browser opener to return immediately. Authentication URLs and QR codes are presented by the Android UI instead. The reproducible patch is `tools/patch-proton-cli.ps1`.
 

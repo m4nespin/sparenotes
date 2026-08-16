@@ -62,6 +62,12 @@ public final class BackupRunnerTest {
     }
 
     @Test
+    public void readsRemoteSkipsFromTransferSummary() throws Exception {
+        assertEquals(7, BackupRunner.remotelySkipped(
+                "{\"transferredItems\":2,\"skippedItems\":7,\"failedItems\":0}", 9));
+    }
+
+    @Test
     public void fingerprintsContentNotMetadata() throws Exception {
         ByteArrayOutputStream firstCopy = new ByteArrayOutputStream();
         ByteArrayOutputStream secondCopy = new ByteArrayOutputStream();

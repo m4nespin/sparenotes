@@ -25,6 +25,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 final class BackupRunner {
     private static final String REMOTE_PARENT = "/my-files";
@@ -35,6 +37,7 @@ final class BackupRunner {
     static final long MAX_FILE_BYTES = 512L * 1024L * 1024L;
     static final int MAX_DOCUMENTS = 10_000;
     static final int MAX_DEPTH = 64;
+    private static final Pattern SKIPPED_ITEMS = Pattern.compile("\\\"skippedItems\\\"\\s*:\\s*(\\d+)");
 
     private final Context context;
     private final BooleanSupplier stopped;
@@ -180,9 +183,10 @@ final class BackupRunner {
         if (batch.pending.isEmpty()) return;
         checkStopped();
         ensureRemoteFolder();
-        progress.accept("Uploading " + batch.pending.size() + " files…");
+        progress.accept("Checking " + batch.pending.size() + " files…");
         CliRunner.Result upload = CliRunner.authenticated(context,
                 "filesystem", "upload",
+                "--json",
                 "--file-conflict-strategy", "replace",
                 "--folder-conflict-strategy", "merge",
                 "--skip-thumbnails",
@@ -190,11 +194,13 @@ final class BackupRunner {
         checkStopped();
         if (!upload.success()) throw new IOException(lastLine(upload.output));
 
+        int remotelySkipped = remotelySkipped(upload.output, batch.pending.size());
         for (Map.Entry<String, String> entry : batch.pending.entrySet()) {
             batch.fingerprints.put(entry.getKey(), entry.getValue());
         }
         TrailSafeStore.fingerprints(context, batch.fingerprints);
-        batch.counts.uploaded += batch.pending.size();
+        batch.counts.uploaded += batch.pending.size() - remotelySkipped;
+        batch.counts.skipped += remotelySkipped;
         batch.pending.clear();
         batch.bytes = 0;
         deleteRecursively(batch.root);
@@ -203,6 +209,14 @@ final class BackupRunner {
 
     static boolean shouldFlush(long bytes, int files) {
         return bytes >= BATCH_BYTES || files >= BATCH_FILES;
+    }
+
+    static int remotelySkipped(String summary, int candidates) throws IOException {
+        Matcher match = SKIPPED_ITEMS.matcher(summary == null ? "" : summary);
+        if (!match.find()) throw new IOException("Invalid Proton transfer summary");
+        int skipped = Integer.parseInt(match.group(1));
+        if (skipped > candidates) throw new IOException("Invalid Proton skipped-file count");
+        return skipped;
     }
 
     private void ensureRemoteFolder() throws IOException {

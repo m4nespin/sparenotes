@@ -9,7 +9,7 @@ TrailSafe is a small, native Android app for automatic, one-way backup from sele
 - Runs only on Wi-Fi. Android schedules a run when Wi-Fi reconnects and once a day while it stays connected; **Back up now** starts a foreground backup immediately.
 - Uploads new files and replaces changed cloud copies under `/my-files/TrailSafe`.
 - Never deletes a local file or a Proton Drive file. Removing a source or deleting a local file leaves its existing cloud copy untouched.
-- Stores a SHA-256 content fingerprint after each bounded upload batch, so interrupted backups resume and unchanged files are skipped.
+- Stores a SHA-256 content fingerprint after each bounded upload batch for fast local checks. If that local history is lost, Proton's content digest still skips unchanged remote files.
 
 Android jobs are intentionally inexact and may be deferred while the Nomad sleeps. Active backups use a foreground service and wake lock so large transfers can finish after the screen sleeps. Android can miss a Wi-Fi disconnect while TrailSafe's process is stopped; the daily job remains the fallback.
 
@@ -36,7 +36,7 @@ The official Proton Drive Android app is not required by TrailSafe.
 
 Requirements: JDK 17+, Android SDK 36, and Android NDK 27 only when rebuilding the compatibility wrapper.
 
-The first build downloads Proton Drive CLI 0.6.0 from Proton, verifies its official SHA-512 checksum, applies the Android browser-launch patch, and verifies the patched SHA-256 checksum. The 110 MB generated binary is intentionally excluded from Git.
+The first build downloads Proton Drive CLI 0.8.0 from Proton, verifies its official SHA-512 checksum, applies the Android browser-launch patch, and verifies the patched SHA-256 checksum. The 110 MB generated binary is intentionally excluded from Git.
 
 ```powershell
 .\gradlew.bat lintDebug testDebugUnitTest assembleDebug
@@ -63,4 +63,4 @@ To rebuild the ARM64 compatibility wrapper with NDK 27:
 
 ## Bundled runtime
 
-The app currently targets the Nomad's ARM64 Android 11 environment. It bundles Proton Drive CLI 0.6.0, a patched musl loader/runtime, GCC runtime libraries, Alpine's CA bundle, and ZXing QR support. Exact provenance and licenses are recorded in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+The app currently targets the Nomad's ARM64 Android 11 environment. It bundles Proton Drive CLI 0.8.0, a patched musl loader/runtime, GCC runtime libraries, Alpine's CA bundle, and ZXing QR support. Exact provenance and licenses are recorded in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

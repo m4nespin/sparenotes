@@ -59,9 +59,9 @@ android {
 }
 
 val protonCli = layout.projectDirectory.file("src/main/jniLibs/arm64-v8a/libproton_drive_cli.so")
-val protonCliUrl = "https://proton.me/download/drive/cli/0.6.0/linux-arm64-musl/proton-drive"
-val protonCliOriginalSha512 = "34831CFCC0EA46C331BD48635E5B2E882483FDB70BFC4FC5C273C8CDD2CEDDB6026296F25C7222E4B235D8A88AA15669B6E1C9FF40B9A2AF081EE279B83289C2"
-val protonCliPatchedSha256 = "23E372DF3F66CC625EC0A6962D331ACA8A22B1E22564B8F929A3C3760C1CD387"
+val protonCliUrl = "https://proton.me/download/drive/cli/0.8.0/linux-arm64-musl/proton-drive"
+val protonCliOriginalSha512 = "FB386CAB36BC346E8BAE1F3E79EFDD14810DE748E762A2C88F384016199FF7211304CC0EC4D220C260C67B83BBE4D3A8D4DD2A2EA0E93B9FDD25C1E42F448165"
+val protonCliPatchedSha256 = "3987BB50B3B3D7AF801AC0ABAF740BCD7E188656B84BB57CF314D85D9EA6F093"
 
 fun ByteArray.digest(algorithm: String): String = MessageDigest.getInstance(algorithm)
     .digest(this)
@@ -74,12 +74,12 @@ val prepareProtonCli by tasks.registering {
         val destination = protonCli.asFile
         if (destination.isFile && destination.readBytes().digest("SHA-256") == protonCliPatchedSha256) return@doLast
 
-        logger.lifecycle("Downloading Proton Drive CLI 0.6.0 (ARM64 musl)…")
+        logger.lifecycle("Downloading Proton Drive CLI 0.8.0 (ARM64 musl)…")
         val bytes = URI(protonCliUrl).toURL().openStream().use { it.readBytes() }
         check(bytes.digest("SHA-512") == protonCliOriginalSha512) { "Proton CLI checksum mismatch" }
 
-        val needle = "function vE(J){let Z=OJ1(J);if(!Z)return;".toByteArray()
-        val replacement = "function vE(J){return;".padEnd(needle.size).toByteArray()
+        val needle = "function Hf(J){let Z=QX1(J);if(!Z)return;".toByteArray()
+        val replacement = "function Hf(J){return;".padEnd(needle.size).toByteArray()
         var match = -1
         for (offset in 0..bytes.size - needle.size) {
             var equal = true

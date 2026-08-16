@@ -2,8 +2,8 @@ param([Parameter(Mandatory = $true)][string]$Path)
 
 $bytes = [IO.File]::ReadAllBytes($Path)
 $ascii = [Text.Encoding]::ASCII
-$needleText = 'function vE(J){let Z=OJ1(J);if(!Z)return;'
-$replacementText = 'function vE(J){return;'.PadRight($needleText.Length)
+$needleText = 'function Hf(J){let Z=QX1(J);if(!Z)return;'
+$replacementText = 'function Hf(J){return;'.PadRight($needleText.Length)
 $needle = $ascii.GetBytes($needleText)
 $replacement = $ascii.GetBytes($replacementText)
 $matches = [Collections.Generic.List[int]]::new()
@@ -26,4 +26,3 @@ if ($matches.Count -ne 1) {
 [Array]::Copy($replacement, 0, $bytes, $matches[0], $replacement.Length)
 [IO.File]::WriteAllBytes($Path, $bytes)
 Write-Output "Disabled automatic xdg-open call at byte $($matches[0])."
-
