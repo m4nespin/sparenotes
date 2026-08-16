@@ -109,7 +109,7 @@ public final class MainActivity extends Activity {
         if (connecting) addLoginControls();
 
         spacer(24);
-        section("2. SD card folders");
+        section("2. Source folders");
         if (SpareNotesStore.sources(this).isEmpty()) {
             content.addView(text("No source folders selected.", 16));
         } else {
