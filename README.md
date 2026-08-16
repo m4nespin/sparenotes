@@ -2,6 +2,22 @@
 
 SpareNotes is a small, native Android app for automatic, one-way backup from selected Supernote Nomad folders to Proton Drive.
 
+## Download and install
+
+SpareNotes currently supports the Supernote Nomad's ARM64 Android 11 environment.
+
+1. Download the latest `SpareNotes-v*.apk` and matching `.sha256` file from [GitHub Releases](https://github.com/m4nespin/sparenotes/releases).
+2. Verify the APK hash against the first value in the `.sha256` file:
+
+   ```powershell
+   Get-FileHash .\SpareNotes-v*.apk -Algorithm SHA256
+   ```
+
+3. On the Nomad, enable **Settings → Security & Privacy → Sideloading**.
+4. Install the verified APK.
+
+Only install APKs attached to this repository's releases. Source archives are not installable apps.
+
 ## What it does
 
 - Lets you select exact internal-storage or microSD folders with Android's folder picker.
@@ -15,11 +31,9 @@ Android jobs are intentionally inexact and may be deferred while the Nomad sleep
 
 ## Nomad setup
 
-1. Enable **Settings → Security & Privacy → Sideloading**.
-2. Install the SpareNotes APK.
-3. Open SpareNotes and tap **Connect Proton Drive**.
-4. Scan the one-time QR with a phone, sign in directly on Proton's page, and approve access.
-5. Tap **Add folder**, choose `disk` for the microSD card, open the desired folder, then tap **Use this folder**. Repeat for more folders.
+1. Open SpareNotes and tap **Connect Proton Drive**.
+2. Scan the one-time QR with a phone, sign in directly on Proton's page, and approve access.
+3. Tap **Add folder**, choose `disk` for the microSD card, open the desired folder, then tap **Use this folder**. Repeat for more folders.
 
 The official Proton Drive Android app is not required by SpareNotes.
 
@@ -32,7 +46,7 @@ The official Proton Drive Android app is not required by SpareNotes.
 - A tiny compatibility wrapper converts syscalls rejected by Android's app sandbox to `ENOSYS`; it does not grant or bypass Android permissions.
 - The bundled CLI has one source-level byte patch: its desktop-only `xdg-open` call returns immediately because SpareNotes itself renders the one-time URL and QR. See `tools/patch-proton-cli.ps1`.
 
-## Build
+## Build from source
 
 Requirements: JDK 17+, Android SDK 36, and Android NDK 27 only when rebuilding the compatibility wrapper.
 
@@ -61,6 +75,10 @@ To rebuild the ARM64 compatibility wrapper with NDK 27:
   -o app\src\main\jniLibs\arm64-v8a\libcompatwrap.so
 ```
 
+GitHub Actions runs lint, unit tests, and a debug build for every pull request and every push to `main`.
+
+See [RELEASING.md](RELEASING.md) for signing and publishing steps.
+
 ## Bundled runtime
 
-The app currently targets the Nomad's ARM64 Android 11 environment. It bundles Proton Drive CLI 0.8.0, a patched musl loader/runtime, GCC runtime libraries, Alpine's CA bundle, and ZXing QR support. Exact provenance and licenses are recorded in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+The app bundles Proton Drive CLI 0.8.0, a patched musl loader/runtime, GCC runtime libraries, Alpine's CA bundle, and ZXing QR support. Exact provenance and licenses are recorded in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
