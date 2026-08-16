@@ -16,6 +16,7 @@ final class SpareNotesStore {
     private static final String PREFS = "sparenotes";
     private static final String SOURCES = "sources";
     private static final String FINGERPRINTS = "fingerprints_sparenotes";
+    private static final String FINGERPRINT_SCHEMA = "v2\n";
     static final String LAST_STATUS = "last_status";
     static final String LAST_RUN = "last_run";
     static final String BACKUP_RUNNING = "backup_running";
@@ -44,7 +45,12 @@ final class SpareNotesStore {
 
     static JSONObject fingerprints(Context context) {
         try {
-            return new JSONObject(prefs(context).getString(FINGERPRINTS, "{}"));
+            JSONObject values = new JSONObject(prefs(context).getString(FINGERPRINTS, "{}"));
+            Iterator<String> keys = values.keys();
+            while (keys.hasNext()) {
+                if (!keys.next().startsWith(FINGERPRINT_SCHEMA)) keys.remove();
+            }
+            return values;
         } catch (JSONException ignored) {
             return new JSONObject();
         }
@@ -61,8 +67,13 @@ final class SpareNotesStore {
         Iterator<String> keys = values.keys();
         while (keys.hasNext()) {
             String key = keys.next();
-            if (key.startsWith(sourceUri + "\n")) keys.remove();
+            if (key.startsWith(sourceUri + "\n")
+                    || key.startsWith(FINGERPRINT_SCHEMA + sourceUri + "\n")) keys.remove();
         }
         fingerprints(context, values);
+    }
+
+    static String fingerprintKey(String sourceUri, String path) {
+        return FINGERPRINT_SCHEMA + sourceUri + "\n" + path;
     }
 }

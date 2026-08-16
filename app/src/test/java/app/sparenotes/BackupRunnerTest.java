@@ -55,6 +55,37 @@ public final class BackupRunnerTest {
     }
 
     @Test
+    public void rejectsDuplicateDocumentNamesBeforeStaging() {
+        Set<String> names = new HashSet<>();
+        BackupRunner.requireUniqueDocumentName(names, "note.pdf");
+        try {
+            BackupRunner.requireUniqueDocumentName(names, "note.pdf");
+            fail("Expected duplicate document name to be rejected");
+        } catch (SecurityException expected) {
+            // Expected.
+        }
+    }
+
+    @Test
+    public void sourceRootsUseStableCollisionResistantNames() {
+        String first = BackupRunner.stableRootName("Notes", "content://provider/tree/first");
+        String repeated = BackupRunner.stableRootName("Notes", "content://provider/tree/first");
+        String second = BackupRunner.stableRootName("Notes", "content://provider/tree/second");
+
+        assertEquals(first, repeated);
+        assertFalse(first.equals(second));
+        assertTrue(first.startsWith("Notes-"));
+        assertEquals("Notes-".length() + 64, first.length());
+    }
+
+    @Test
+    public void stableRootMigrationUsesNewFingerprintNamespace() {
+        assertEquals("v2\ncontent://provider/tree/notes\nfolder/note.pdf",
+                SpareNotesStore.fingerprintKey(
+                        "content://provider/tree/notes", "folder/note.pdf"));
+    }
+
+    @Test
     public void batchFlushesAtEitherLimit() {
         assertFalse(BackupRunner.shouldFlush(BackupRunner.BATCH_BYTES - 1, BackupRunner.BATCH_FILES - 1));
         assertTrue(BackupRunner.shouldFlush(BackupRunner.BATCH_BYTES, 1));

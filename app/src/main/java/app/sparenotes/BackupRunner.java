@@ -15,6 +15,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -72,7 +73,6 @@ final class BackupRunner {
 
         JSONObject fingerprints = SpareNotesStore.fingerprints(context);
         Counts counts = new Counts();
-        Set<String> usedRootNames = new HashSet<>();
         try {
             counts.totalFiles = countFiles(sources);
             status(counts.progress());
@@ -84,7 +84,7 @@ final class BackupRunner {
                     counts.failed++;
                     continue;
                 }
-                File stageRoot = uniqueRoot(staging, sourceRoot.name, sourceValue, usedRootNames);
+                File stageRoot = stableRoot(staging, sourceRoot.name, sourceValue);
                 Batch batch = new Batch(staging, stageRoot, fingerprints, counts);
                 stageFolder(sourceValue, sourceTree, sourceRoot.id, stageRoot, "", batch,
                         new HashSet<>(), 0);
@@ -122,12 +122,14 @@ final class BackupRunner {
     private void countFolder(Uri sourceTree, String sourceFolderId, Counts counts,
                              Set<String> ancestors, int depth) throws Exception {
         enterFolder(ancestors, sourceFolderId, depth);
+        Set<String> usedNames = new HashSet<>();
         try {
             for (Doc child : children(sourceTree, sourceFolderId)) {
                 checkStopped();
                 if (++counts.documents > MAX_DOCUMENTS) {
                     throw new SecurityException("Backup contains too many documents");
                 }
+                requireUniqueDocumentName(usedNames, child.name);
                 if (child.directory()) {
                     countFolder(sourceTree, child.id, counts, ancestors, depth + 1);
                 } else {
@@ -143,12 +145,14 @@ final class BackupRunner {
                              File stageFolder, String relativePath, Batch batch,
                              Set<String> ancestors, int depth) throws Exception {
         enterFolder(ancestors, sourceFolderId, depth);
+        Set<String> usedNames = new HashSet<>();
         try {
             for (Doc child : children(sourceTree, sourceFolderId)) {
                 checkStopped();
                 if (++batch.counts.documents > MAX_DOCUMENTS) {
                     throw new SecurityException("Backup contains too many documents");
                 }
+                requireUniqueDocumentName(usedNames, child.name);
                 String path = relativePath.isEmpty() ? child.name : relativePath + "/" + child.name;
                 if (child.directory()) {
                     stageFolder(sourceValue, sourceTree, child.id,
@@ -167,7 +171,7 @@ final class BackupRunner {
                     if (input == null) throw new IllegalStateException("Cannot read " + path);
                     fingerprint = copyAndFingerprint(input, output, stopped);
                 }
-                String key = sourceValue + "\n" + path;
+                String key = SpareNotesStore.fingerprintKey(sourceValue, path);
                 if (fingerprint.equals(batch.fingerprints.optString(key, null))) {
                     if (!target.delete()) throw new IOException("Cannot clear unchanged staged file: " + path);
                     batch.counts.skipped++;
@@ -321,14 +325,42 @@ final class BackupRunner {
         return DocumentsContract.buildDocumentUriUsingTree(tree, id);
     }
 
-    private File uniqueRoot(File staging, String name, String sourceValue,
-                            Set<String> usedRootNames) throws IOException {
-        String candidate = name;
-        if (!usedRootNames.add(candidate)) {
-            candidate = name + "-" + Integer.toHexString(sourceValue.hashCode());
-            usedRootNames.add(candidate);
+    static void requireUniqueDocumentName(Set<String> usedNames, String name) {
+        if (!usedNames.add(name)) {
+            throw new SecurityException("Backup folder contains duplicate document names: " + name);
         }
-        return safeStageChild(staging, staging, candidate);
+    }
+
+    static String stableRootName(String name, String sourceValue) {
+        MessageDigest digest;
+        try {
+            digest = MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException error) {
+            throw new IllegalStateException("SHA-256 unavailable", error);
+        }
+        StringBuilder suffix = new StringBuilder();
+        for (byte value : digest.digest(sourceValue.getBytes(StandardCharsets.UTF_8))) {
+            suffix.append(String.format("%02x", value & 0xff));
+        }
+        return truncateUtf8(name, 160) + "-" + suffix;
+    }
+
+    private static String truncateUtf8(String value, int maxBytes) {
+        int end = 0;
+        int bytes = 0;
+        while (end < value.length()) {
+            int codePoint = value.codePointAt(end);
+            int codePointBytes = new String(Character.toChars(codePoint))
+                    .getBytes(StandardCharsets.UTF_8).length;
+            if (bytes + codePointBytes > maxBytes) break;
+            bytes += codePointBytes;
+            end += Character.charCount(codePoint);
+        }
+        return value.substring(0, end);
+    }
+
+    private File stableRoot(File staging, String name, String sourceValue) throws IOException {
+        return safeStageChild(staging, staging, stableRootName(name, sourceValue));
     }
 
     static File safeStageChild(File stagingRoot, File parent, String name) throws IOException {

@@ -57,9 +57,9 @@ The official Proton Drive Android app is not required by SpareNotes.
 
 - SpareNotes never receives or stores the Proton password. Authentication happens on Proton's HTTPS page.
 - It uses Proton's official Drive CLI/SDK for authentication, encryption, and uploads.
-- The CLI session is encrypted at rest with an Android Keystore AES-256-GCM key. Plaintext exists only in SpareNotes' private app directory while a Proton command is active.
-- Android backups are disabled and cleartext network traffic is blocked.
-- A tiny compatibility wrapper converts syscalls rejected by Android's app sandbox to `ENOSYS`; it does not grant or bypass Android permissions.
+- The CLI session is encrypted at rest with an Android Keystore AES-256-GCM key. A private memory-only bridge serves credentials to the CLI, so no plaintext session file is created during Proton commands.
+- Android backups are disabled. CLI requests use an authenticated loopback `CONNECT` proxy that permits only Proton HTTPS hosts; DNS resolution goes through Android and respects its Private DNS setting.
+- Tiny compatibility and credential wrappers adapt the Linux CLI to Android. They do not grant or bypass Android permissions.
 - The bundled CLI has one source-level byte patch: its desktop-only `xdg-open` call returns immediately because SpareNotes itself renders the one-time URL and QR. See `tools/patch-proton-cli.ps1`.
 
 ## Build from source
@@ -83,12 +83,17 @@ Create the release signing key once, then back up `.release-signing` somewhere s
 
 Install only the resulting signed, non-debuggable release APK.
 
-To rebuild the ARM64 compatibility wrapper with NDK 27:
+To rebuild the ARM64 compatibility and credential wrappers with NDK 27:
 
 ```powershell
-& "$env:LOCALAPPDATA\Android\Sdk\ndk\27.0.12077973\toolchains\llvm\prebuilt\windows-x86_64\bin\aarch64-linux-android30-clang.cmd" `
+$ndkClang = "$env:LOCALAPPDATA\Android\Sdk\ndk\27.0.12077973\toolchains\llvm\prebuilt\windows-x86_64\bin\aarch64-linux-android30-clang.cmd"
+& $ndkClang `
   -O2 -fPIE -pie app\src\main\cpp\compatwrap.c `
   -o app\src\main\jniLibs\arm64-v8a\libcompatwrap.so
+& $ndkClang `
+  -O2 -Wall -Wextra -Werror -fstack-protector-strong -D_FORTIFY_SOURCE=2 -fPIE -pie `
+  "-Wl,-z,relro,-z,now" app\src\main\cpp\passbridge.c `
+  -o app\src\main\jniLibs\arm64-v8a\libpass_bridge.so
 ```
 
 GitHub Actions runs lint, unit tests, and a debug build for every pull request and every push to `main`.
@@ -97,4 +102,4 @@ See [RELEASING.md](RELEASING.md) for signing and publishing steps.
 
 ## Bundled runtime
 
-The app bundles Proton Drive CLI 0.8.0, a patched musl loader/runtime, GCC runtime libraries, Alpine's CA bundle, and ZXing QR support. Exact provenance and licenses are recorded in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+The app bundles Proton Drive CLI 0.8.0, a patched musl loader/runtime, GCC runtime libraries, Alpine's CA bundle, native Android bridges, and ZXing QR support. Exact third-party provenance and licenses are recorded in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

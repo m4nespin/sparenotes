@@ -9,13 +9,14 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
 final class CliRunner {
-    private static final String RUNTIME_VERSION = "1";
+    private static final String RUNTIME_VERSION = "2";
     private static final String[] RUNTIME_FILES = {
             "libc.musl-aarch64.so.1",
             "libgcc_s.so.1",
@@ -50,15 +51,19 @@ final class CliRunner {
         File runtime = runtimeDirectory(context);
         if (!runtime.exists() && !runtime.mkdirs()) return;
         String installed = SpareNotesStore.prefs(context).getString("runtime_version", null);
-        if (!RUNTIME_VERSION.equals(installed)) {
+        boolean runtimeChanged = !RUNTIME_VERSION.equals(installed);
+        if (runtimeChanged) {
             for (String name : RUNTIME_FILES) copyAsset(context, "runtime/" + name, new File(runtime, name));
-            SpareNotesStore.prefs(context).edit().putString("runtime_version", RUNTIME_VERSION).commit();
         }
+        installPassBridge(context, runtime);
         File data = dataDirectory(context);
         data.mkdirs();
         File resolver = new File(data, "resolv.conf");
-        if (!resolver.exists()) copyAsset(context, "runtime/resolv.conf", resolver);
+        if (runtimeChanged || !resolver.exists()) copyAsset(context, "runtime/resolv.conf", resolver);
         SessionVault.sealIfNeeded(context);
+        if (runtimeChanged) {
+            SpareNotesStore.prefs(context).edit().putString("runtime_version", RUNTIME_VERSION).commit();
+        }
     }
 
     static boolean connected(Context context) {
@@ -67,21 +72,12 @@ final class CliRunner {
 
     static synchronized Result login(Context context, LineListener listener) {
         prepare(context);
-        try {
-            return runRaw(context, List.of("auth", "login"), listener);
-        } finally {
-            SessionVault.sealIfNeeded(context);
-        }
+        return runRaw(context, List.of("auth", "login"), listener);
     }
 
     static synchronized Result authenticated(Context context, String... arguments) {
         prepare(context);
-        SessionVault.unseal(context);
-        try {
-            return runRaw(context, Arrays.asList(arguments), null);
-        } finally {
-            SessionVault.seal(context);
-        }
+        return runRaw(context, Arrays.asList(arguments), null);
     }
 
     static void cancelActive() {
@@ -105,7 +101,8 @@ final class CliRunner {
         command.addAll(arguments);
 
         StringBuilder output = new StringBuilder();
-        try {
+        try (SessionVault.Bridge bridge = SessionVault.openBridge(context);
+             SecureNetworkProxy proxy = new SecureNetworkProxy(context)) {
             ProcessBuilder builder = new ProcessBuilder(command)
                     .directory(dataDirectory(context))
                     .redirectErrorStream(true);
@@ -116,8 +113,17 @@ final class CliRunner {
             environment.put("XDG_CACHE_HOME", new File(dataDirectory(context), "cache").getAbsolutePath());
             environment.put("SSL_CERT_FILE", new File(runtime, "ca-certificates.crt").getAbsolutePath());
             environment.put("PROTON_DRIVE_CACHE_DIR", dataDirectory(context).getAbsolutePath());
-            environment.put("PROTON_DRIVE_CREDENTIALS_STORE", "unsafe_file");
+            environment.put("PATH", runtime.getAbsolutePath() + ":"
+                    + environment.getOrDefault("PATH", "/system/bin"));
+            environment.put("PROTON_DRIVE_CREDENTIALS_STORE", "pass");
             environment.put("PROTON_DRIVE_LOG_LEVEL", "WARNING");
+            environment.put("SPARENOTES_VAULT_SOCKET", bridge.socketName());
+            environment.put("HTTP_PROXY", proxy.proxyUrl());
+            environment.put("HTTPS_PROXY", proxy.proxyUrl());
+            environment.put("http_proxy", proxy.proxyUrl());
+            environment.put("https_proxy", proxy.proxyUrl());
+            environment.put("NO_PROXY", "127.0.0.1,localhost");
+            environment.put("no_proxy", "127.0.0.1,localhost");
             Process process = builder.start();
             activeProcess = process;
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(
@@ -138,6 +144,19 @@ final class CliRunner {
 
     private static File runtimeDirectory(Context context) {
         return new File(context.getFilesDir(), "musl");
+    }
+
+    private static void installPassBridge(Context context, File runtime) {
+        File packaged = new File(context.getApplicationInfo().nativeLibraryDir, "libpass_bridge.so");
+        File link = new File(runtime, "pass");
+        try {
+            if (Files.isSymbolicLink(link.toPath())
+                    && Files.readSymbolicLink(link.toPath()).equals(packaged.toPath())) return;
+            Files.deleteIfExists(link.toPath());
+            Files.createSymbolicLink(link.toPath(), packaged.toPath());
+        } catch (Exception error) {
+            throw new IllegalStateException("Could not install credential bridge", error);
+        }
     }
 
     private static void copyAsset(Context context, String asset, File destination) {
