@@ -11,6 +11,7 @@ import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.DocumentsContract;
+import android.view.Gravity;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
@@ -88,9 +89,19 @@ public final class MainActivity extends Activity {
         content.setPadding(dp(24), dp(28), dp(24), dp(40));
         scroll.addView(content);
 
+        LinearLayout titleRow = new LinearLayout(this);
+        titleRow.setGravity(Gravity.CENTER_VERTICAL);
+        ImageView logo = new ImageView(this);
+        logo.setImageResource(R.drawable.ic_launcher);
+        titleRow.addView(logo, new LinearLayout.LayoutParams(dp(44), dp(44)));
+
         TextView title = text("SpareNotes", 30);
         title.setTextColor(Color.BLACK);
-        content.addView(title);
+        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        titleParams.leftMargin = dp(2);
+        titleRow.addView(title, titleParams);
+        content.addView(titleRow);
         content.addView(text("Automatic, Wi-Fi-only backup to Proton Drive", 16));
         spacer(24);
 
