@@ -9,30 +9,36 @@
         android:fillColor="#FFFFFF"
         android:pathData="M28,6 H80 A22,22 0,0 1,102 28 V80 A22,22 0,0 1,80 102 H28 A22,22 0,0 1,6 80 V28 A22,22 0,0 1,28 6 Z" />
 
-    <!-- Spare sheet behind the active note. -->
-    <path
-        android:fillColor="@android:color/transparent"
-        android:pathData="M27,31 V87 H68"
-        android:strokeColor="#111111"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:strokeWidth="4" />
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="1.1"
+        android:scaleY="1.1">
+        <!-- Spare sheet behind the active note. -->
+        <path
+            android:fillColor="@android:color/transparent"
+            android:pathData="M27,31 V87 H68"
+            android:strokeColor="#111111"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:strokeWidth="6" />
 
-    <!-- Note with folded corner. -->
-    <path
-        android:fillColor="@android:color/transparent"
-        android:pathData="M35,21 H62 L78,37 V79 H35 Z M62,21 V37 H78"
-        android:strokeColor="#111111"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:strokeWidth="4" />
+        <!-- Note with folded corner. -->
+        <path
+            android:fillColor="@android:color/transparent"
+            android:pathData="M35,21 H62 L78,37 V79 H35 Z M62,21 V37 H78"
+            android:strokeColor="#111111"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:strokeWidth="6" />
 
-    <!-- One-way backup/upload arrow. -->
-    <path
-        android:fillColor="@android:color/transparent"
-        android:pathData="M47,57 L56.5,47.5 L66,57 M56.5,48 V69"
-        android:strokeColor="#111111"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:strokeWidth="4" />
+        <!-- One-way backup/upload arrow. -->
+        <path
+            android:fillColor="@android:color/transparent"
+            android:pathData="M47,57 L56.5,47.5 L66,57 M56.5,48 V69"
+            android:strokeColor="#111111"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:strokeWidth="6" />
+    </group>
 </vector>
