@@ -9,7 +9,12 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.util.HashSet;
+import java.util.Set;
 
 public final class BackupRunnerTest {
     @Rule
@@ -54,5 +59,37 @@ public final class BackupRunnerTest {
         assertFalse(BackupRunner.shouldFlush(BackupRunner.BATCH_BYTES - 1, BackupRunner.BATCH_FILES - 1));
         assertTrue(BackupRunner.shouldFlush(BackupRunner.BATCH_BYTES, 1));
         assertTrue(BackupRunner.shouldFlush(1, BackupRunner.BATCH_FILES));
+    }
+
+    @Test
+    public void fingerprintsContentNotMetadata() throws Exception {
+        ByteArrayOutputStream firstCopy = new ByteArrayOutputStream();
+        ByteArrayOutputStream secondCopy = new ByteArrayOutputStream();
+        String first = BackupRunner.copyAndFingerprint(
+                new ByteArrayInputStream("same size A".getBytes(StandardCharsets.UTF_8)), firstCopy, () -> false);
+        String second = BackupRunner.copyAndFingerprint(
+                new ByteArrayInputStream("same size B".getBytes(StandardCharsets.UTF_8)), secondCopy, () -> false);
+
+        assertFalse(first.equals(second));
+        assertEquals("same size A", firstCopy.toString(StandardCharsets.UTF_8.name()));
+    }
+
+    @Test
+    public void rejectsFolderCyclesAndUnsafeDepth() {
+        Set<String> ancestors = new HashSet<>();
+        BackupRunner.enterFolder(ancestors, "root", 0);
+        try {
+            BackupRunner.enterFolder(ancestors, "root", 1);
+            fail("Expected folder cycle to be rejected");
+        } catch (SecurityException expected) {
+            // Expected.
+        }
+
+        try {
+            BackupRunner.enterFolder(new HashSet<>(), "deep", BackupRunner.MAX_DEPTH + 1);
+            fail("Expected unsafe nesting to be rejected");
+        } catch (SecurityException expected) {
+            // Expected.
+        }
     }
 }

@@ -14,6 +14,9 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -29,6 +32,9 @@ final class BackupRunner {
     private static final String REMOTE_PATH = REMOTE_PARENT + "/" + REMOTE_NAME;
     static final long BATCH_BYTES = 128L * 1024L * 1024L;
     static final int BATCH_FILES = 100;
+    static final long MAX_FILE_BYTES = 512L * 1024L * 1024L;
+    static final int MAX_DOCUMENTS = 10_000;
+    static final int MAX_DEPTH = 64;
 
     private final Context context;
     private final BooleanSupplier stopped;
@@ -75,7 +81,8 @@ final class BackupRunner {
                 }
                 File stageRoot = uniqueRoot(staging, sourceRoot.name, sourceValue, usedRootNames);
                 Batch batch = new Batch(staging, stageRoot, fingerprints, counts);
-                stageFolder(sourceValue, sourceTree, sourceRoot.id, stageRoot, "", batch);
+                stageFolder(sourceValue, sourceTree, sourceRoot.id, stageRoot, "", batch,
+                        new HashSet<>(), 0);
                 flush(batch);
             }
 
@@ -95,39 +102,78 @@ final class BackupRunner {
     }
 
     private void stageFolder(String sourceValue, Uri sourceTree, String sourceFolderId,
-                             File stageFolder, String relativePath, Batch batch) throws Exception {
-        for (Doc child : children(sourceTree, sourceFolderId)) {
-            checkStopped();
-            String path = relativePath.isEmpty() ? child.name : relativePath + "/" + child.name;
-            if (child.directory()) {
-                stageFolder(sourceValue, sourceTree, child.id,
-                        safeStageChild(batch.staging, stageFolder, child.name), path, batch);
-                continue;
-            }
-            String key = sourceValue + "\n" + path;
-            String fingerprint = child.size + ":" + child.modified;
-            if (fingerprint.equals(batch.fingerprints.optString(key, null))) {
-                batch.counts.skipped++;
-                continue;
-            }
-            if (!stageFolder.exists() && !stageFolder.mkdirs()) {
-                throw new IllegalStateException("Cannot stage " + path);
-            }
-            File target = safeStageChild(batch.staging, stageFolder, child.name);
-            try (InputStream input = context.getContentResolver().openInputStream(documentUri(sourceTree, child.id));
-                 FileOutputStream output = new FileOutputStream(target)) {
-                if (input == null) throw new IllegalStateException("Cannot read " + path);
-                byte[] buffer = new byte[64 * 1024];
-                int read;
-                while ((read = input.read(buffer)) != -1) {
-                    checkStopped();
-                    output.write(buffer, 0, read);
+                             File stageFolder, String relativePath, Batch batch,
+                             Set<String> ancestors, int depth) throws Exception {
+        enterFolder(ancestors, sourceFolderId, depth);
+        try {
+            for (Doc child : children(sourceTree, sourceFolderId)) {
+                checkStopped();
+                if (++batch.counts.documents > MAX_DOCUMENTS) {
+                    throw new SecurityException("Backup contains too many documents");
                 }
+                String path = relativePath.isEmpty() ? child.name : relativePath + "/" + child.name;
+                if (child.directory()) {
+                    stageFolder(sourceValue, sourceTree, child.id,
+                            safeStageChild(batch.staging, stageFolder, child.name), path, batch,
+                            ancestors, depth + 1);
+                    continue;
+                }
+                if (child.size > MAX_FILE_BYTES) throw new IOException("File exceeds 512 MiB limit: " + path);
+                if (!stageFolder.exists() && !stageFolder.mkdirs()) {
+                    throw new IllegalStateException("Cannot stage " + path);
+                }
+                File target = safeStageChild(batch.staging, stageFolder, child.name);
+                String fingerprint;
+                try (InputStream input = context.getContentResolver().openInputStream(documentUri(sourceTree, child.id));
+                     FileOutputStream output = new FileOutputStream(target)) {
+                    if (input == null) throw new IllegalStateException("Cannot read " + path);
+                    fingerprint = copyAndFingerprint(input, output, stopped);
+                }
+                String key = sourceValue + "\n" + path;
+                if (fingerprint.equals(batch.fingerprints.optString(key, null))) {
+                    if (!target.delete()) throw new IOException("Cannot clear unchanged staged file: " + path);
+                    batch.counts.skipped++;
+                    continue;
+                }
+                batch.pending.put(key, fingerprint);
+                batch.bytes += target.length();
+                if (shouldFlush(batch.bytes, batch.pending.size())) flush(batch);
             }
-            batch.pending.put(key, fingerprint);
-            batch.bytes += target.length();
-            if (shouldFlush(batch.bytes, batch.pending.size())) flush(batch);
+        } finally {
+            ancestors.remove(sourceFolderId);
         }
+    }
+
+    static void enterFolder(Set<String> ancestors, String documentId, int depth) {
+        if (documentId == null || depth > MAX_DEPTH) {
+            throw new SecurityException("Backup folder nesting is unsafe");
+        }
+        if (!ancestors.add(documentId)) throw new SecurityException("Backup folder cycle detected");
+    }
+
+    static String copyAndFingerprint(InputStream input, OutputStream output,
+                                     BooleanSupplier stopped) throws IOException, InterruptedException {
+        MessageDigest digest;
+        try {
+            digest = MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException error) {
+            throw new IllegalStateException("SHA-256 unavailable", error);
+        }
+        byte[] buffer = new byte[64 * 1024];
+        long bytes = 0;
+        int read;
+        while ((read = input.read(buffer)) != -1) {
+            if (stopped.getAsBoolean() || Thread.currentThread().isInterrupted()) {
+                throw new InterruptedException("Backup stopped");
+            }
+            bytes += read;
+            if (bytes > MAX_FILE_BYTES) throw new IOException("File exceeds 512 MiB limit");
+            digest.update(buffer, 0, read);
+            output.write(buffer, 0, read);
+        }
+        StringBuilder result = new StringBuilder("sha256:");
+        for (byte value : digest.digest()) result.append(String.format("%02x", value & 0xff));
+        return result.toString();
     }
 
     private void flush(Batch batch) throws Exception {
@@ -185,6 +231,9 @@ final class BackupRunner {
         try (Cursor cursor = context.getContentResolver().query(children, projection, null, null, null)) {
             if (cursor == null) throw new IllegalStateException("Folder is unavailable");
             while (cursor.moveToNext()) {
+                if (result.size() >= MAX_DOCUMENTS) {
+                    throw new SecurityException("Folder contains too many documents");
+                }
                 result.add(new Doc(cursor.getString(0), cursor.getString(1), cursor.getString(2),
                         cursor.isNull(3) ? 0 : cursor.getLong(3),
                         cursor.isNull(4) ? 0 : cursor.getLong(4)));
@@ -320,6 +369,7 @@ final class BackupRunner {
         int uploaded;
         int skipped;
         int failed;
+        int documents;
 
         String summary() {
             return uploaded + " uploaded, " + skipped + " unchanged"

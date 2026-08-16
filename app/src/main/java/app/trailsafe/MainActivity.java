@@ -3,6 +3,7 @@ package app.trailsafe;
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.content.UriPermission;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.Color;
@@ -10,6 +11,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.provider.DocumentsContract;
 import android.view.View;
+import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -21,8 +23,11 @@ import com.google.zxing.BarcodeFormat;
 import com.google.zxing.common.BitMatrix;
 import com.google.zxing.qrcode.QRCodeWriter;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.text.DateFormat;
 import java.util.Date;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -39,6 +44,7 @@ public final class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle state) {
         super.onCreate(state);
+        releaseUnusedSourcePermissions();
         render();
         BackupJobService.scheduleDaily(this);
     }
@@ -50,6 +56,11 @@ public final class MainActivity extends Activity {
     }
 
     private void render() {
+        if (connecting) {
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
+        } else {
+            getWindow().clearFlags(WindowManager.LayoutParams.FLAG_SECURE);
+        }
         ScrollView scroll = new ScrollView(this);
         content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
@@ -113,7 +124,7 @@ public final class MainActivity extends Activity {
         render();
         executor.execute(() -> {
             CliRunner.Result result = CliRunner.login(this, line -> {
-                if (line.startsWith("https://")) {
+                if (trustedProtonLoginUrl(line)) {
                     loginUrl = line;
                     runOnUiThread(this::render);
                 }
@@ -150,8 +161,7 @@ public final class MainActivity extends Activity {
         } catch (Exception error) {
             connectionError = "Could not draw sign-in QR code.";
         }
-        TextView link = text(loginUrl, 11);
-        link.setTextIsSelectable(true);
+        TextView link = text("Authorization page: https://account.proton.me/…", 11);
         link.setPadding(0, dp(10), 0, 0);
         content.addView(link);
         addButton("Open authorization page", v -> openLoginUrl());
@@ -164,10 +174,31 @@ public final class MainActivity extends Activity {
     }
 
     private void openLoginUrl() {
+        if (!trustedProtonLoginUrl(loginUrl)) {
+            connectionError = "Invalid Proton authorization link.";
+            render();
+            return;
+        }
         try {
             startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(loginUrl)));
         } catch (ActivityNotFoundException error) {
             Toast.makeText(this, "Scan QR code with another device.", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    static boolean trustedProtonLoginUrl(String value) {
+        if (value == null) return false;
+        try {
+            URI uri = new URI(value);
+            return "https".equalsIgnoreCase(uri.getScheme())
+                    && "account.proton.me".equalsIgnoreCase(uri.getHost())
+                    && uri.getUserInfo() == null
+                    && uri.getPort() == -1
+                    && "/desktop/login".equals(uri.getPath())
+                    && uri.getRawFragment() != null
+                    && !uri.getRawFragment().isEmpty();
+        } catch (URISyntaxException error) {
+            return false;
         }
     }
 
@@ -190,10 +221,27 @@ public final class MainActivity extends Activity {
         remove.setOnClickListener(v -> {
             TrailSafeStore.removeSource(this, source);
             TrailSafeStore.forgetSourceFingerprints(this, source);
+            releaseSourcePermission(Uri.parse(source));
             render();
         });
         row.addView(remove);
         content.addView(row);
+    }
+
+    private void releaseUnusedSourcePermissions() {
+        Set<String> sources = TrailSafeStore.sources(this);
+        for (UriPermission permission : getContentResolver().getPersistedUriPermissions()) {
+            if (!sources.contains(permission.getUri().toString())) {
+                releaseSourcePermission(permission.getUri());
+            }
+        }
+    }
+
+    private void releaseSourcePermission(Uri uri) {
+        try {
+            getContentResolver().releasePersistableUriPermission(
+                    uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        } catch (SecurityException ignored) {}
     }
 
     private boolean ready() {

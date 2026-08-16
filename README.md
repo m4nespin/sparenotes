@@ -9,7 +9,7 @@ TrailSafe is a small, native Android app for automatic, one-way backup from sele
 - Runs only on Wi-Fi. Android schedules a run when Wi-Fi reconnects and once a day while it stays connected; **Back up now** starts a foreground backup immediately.
 - Uploads new files and replaces changed cloud copies under `/my-files/TrailSafe`.
 - Never deletes a local file or a Proton Drive file. Removing a source or deleting a local file leaves its existing cloud copy untouched.
-- Stores file size and modification time after each bounded upload batch, so interrupted backups resume and unchanged files are skipped.
+- Stores a SHA-256 content fingerprint after each bounded upload batch, so interrupted backups resume and unchanged files are skipped.
 
 Android jobs are intentionally inexact and may be deferred while the Nomad sleeps. Active backups use a foreground service and wake lock so large transfers can finish after the screen sleeps. Android can miss a Wi-Fi disconnect while TrailSafe's process is stopped; the daily job remains the fallback.
 
@@ -42,7 +42,9 @@ The first build downloads Proton Drive CLI 0.6.0 from Proton, verifies its offic
 .\gradlew.bat lintDebug testDebugUnitTest assembleDebug
 ```
 
-The debug APK is written to `app/build/outputs/apk/debug/app-debug.apk`.
+The debug APK is for development only. It is debuggable and must not be installed on a device holding Proton data.
+
+For deployment, use **Android Studio → Build → Generate Signed Bundle / APK → APK → release**. Install only the resulting signed, non-debuggable release APK.
 
 To rebuild the ARM64 compatibility wrapper with NDK 27:
 

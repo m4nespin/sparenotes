@@ -22,6 +22,16 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    buildTypes {
+        debug {
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+        }
+        release {
+            isDebuggable = false
+        }
+    }
+
     packaging {
         jniLibs {
             useLegacyPackaging = true
