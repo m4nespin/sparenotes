@@ -4,10 +4,14 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import org.junit.Test;
 
 import java.lang.reflect.Modifier;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
 
 public final class MainActivityTest {
     @Test
@@ -50,5 +54,35 @@ public final class MainActivityTest {
                 authorization));
         assertNull(SecureNetworkProxy.parseTarget(
                 "CONNECT drive-api.proton.me:443 HTTP/1.1\r\n\r\n", authorization));
+    }
+
+    @Test
+    public void sessionBridgeAcceptsOnlyItsAppUid() {
+        assertTrue(SessionVault.Bridge.trustedPeer(10001, 10001));
+        assertFalse(SessionVault.Bridge.trustedPeer(10002, 10001));
+    }
+
+    @Test
+    public void secureProxyRejectsConnectionsBeyondWorkerLimit() throws Exception {
+        ExecutorService workers = SecureNetworkProxy.newWorkerPool();
+        CountDownLatch release = new CountDownLatch(1);
+        try {
+            for (int index = 0; index < SecureNetworkProxy.MAX_CLIENTS; index++) {
+                workers.execute(() -> {
+                    try {
+                        release.await();
+                    } catch (InterruptedException ignored) {
+                        Thread.currentThread().interrupt();
+                    }
+                });
+            }
+            try {
+                workers.execute(() -> {});
+                fail("Worker pool accepted more than its client limit");
+            } catch (RejectedExecutionException expected) {}
+        } finally {
+            release.countDown();
+            workers.shutdownNow();
+        }
     }
 }

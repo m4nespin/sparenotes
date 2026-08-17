@@ -16,7 +16,7 @@ final class SpareNotesStore {
     private static final String PREFS = "sparenotes";
     private static final String SOURCES = "sources";
     private static final String FINGERPRINTS = "fingerprints_sparenotes";
-    private static final String FINGERPRINT_SCHEMA = "v2\n";
+    private static final String FINGERPRINT_SCHEMA = "v3\n";
     static final String LAST_STATUS = "last_status";
     static final String LAST_RUN = "last_run";
     static final String BACKUP_RUNNING = "backup_running";

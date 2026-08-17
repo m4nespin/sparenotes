@@ -3,6 +3,8 @@ package app.sparenotes;
 import android.content.Context;
 import android.net.LocalServerSocket;
 import android.net.LocalSocket;
+import android.net.LocalSocketAddress;
+import android.os.Process;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
 
@@ -33,6 +35,7 @@ final class SessionVault {
     private static final int OK = 0;
     private static final int MISSING = 1;
     private static final int ERROR = 2;
+    private static final int BRIDGE_TIMEOUT_MS = 15_000;
 
     private SessionVault() {}
 
@@ -158,11 +161,21 @@ final class SessionVault {
         private void serve() {
             while (!closed) {
                 try (LocalSocket socket = server.accept()) {
+                    if (closed) continue;
+                    socket.setSoTimeout(BRIDGE_TIMEOUT_MS);
+                    if (!trustedPeer(socket.getPeerCredentials().getUid(), Process.myUid())) {
+                        android.util.Log.w("SpareNotes", "Rejected untrusted session bridge peer");
+                        continue;
+                    }
                     handle(socket);
                 } catch (Exception error) {
                     if (!closed) android.util.Log.e("SpareNotes", "Session bridge failed", error);
                 }
             }
+        }
+
+        static boolean trustedPeer(int peerUid, int appUid) {
+            return peerUid == appUid;
         }
 
         private void handle(LocalSocket socket) throws Exception {
@@ -215,6 +228,9 @@ final class SessionVault {
         @Override
         public void close() {
             closed = true;
+            try (LocalSocket wake = new LocalSocket()) {
+                wake.connect(new LocalSocketAddress(socketName, LocalSocketAddress.Namespace.ABSTRACT));
+            } catch (Exception ignored) {}
             try {
                 server.close();
                 thread.join(1000);

@@ -15,7 +15,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -39,6 +38,8 @@ final class BackupRunner {
     static final int MAX_DOCUMENTS = 10_000;
     static final int MAX_DEPTH = 64;
     private static final Pattern SKIPPED_ITEMS = Pattern.compile("\\\"skippedItems\\\"\\s*:\\s*(\\d+)");
+    private static final Pattern FAILURE_ERROR = Pattern.compile(
+            "\\\"error\\\"\\s*:\\s*\\\"((?:\\\\.|[^\\\"\\\\])*)\\\"");
 
     private final Context context;
     private final BooleanSupplier stopped;
@@ -84,7 +85,7 @@ final class BackupRunner {
                     counts.failed++;
                     continue;
                 }
-                File stageRoot = stableRoot(staging, sourceRoot.name, sourceValue);
+                File stageRoot = safeStageChild(staging, staging, sourceRoot.name);
                 Batch batch = new Batch(staging, stageRoot, fingerprints, counts);
                 stageFolder(sourceValue, sourceTree, sourceRoot.id, stageRoot, "", batch,
                         new HashSet<>(), 0);
@@ -108,11 +109,13 @@ final class BackupRunner {
 
     private int countFiles(Set<String> sources) throws Exception {
         Counts counts = new Counts();
+        Set<String> rootNames = new HashSet<>();
         for (String sourceValue : sources) {
             checkStopped();
             Uri sourceTree = Uri.parse(sourceValue);
             Doc sourceRoot = readDocument(rootDocument(sourceTree));
             if (sourceRoot != null) {
+                requireUniqueDocumentName(rootNames, sourceRoot.name);
                 countFolder(sourceTree, sourceRoot.id, counts, new HashSet<>(), 0);
             }
         }
@@ -231,7 +234,7 @@ final class BackupRunner {
                 "--skip-thumbnails",
                 batch.root.getAbsolutePath(), REMOTE_PATH);
         checkStopped();
-        if (!upload.success()) throw new IOException(lastLine(upload.output));
+        if (!upload.success()) throw new IOException(uploadFailure(upload.output));
 
         int remotelySkipped = remotelySkipped(upload.output, batch.pending.size());
         for (Map.Entry<String, String> entry : batch.pending.entrySet()) {
@@ -256,6 +259,17 @@ final class BackupRunner {
         int skipped = Integer.parseInt(match.group(1));
         if (skipped > candidates) throw new IOException("Invalid Proton skipped-file count");
         return skipped;
+    }
+
+    static String uploadFailure(String output) {
+        Matcher match = FAILURE_ERROR.matcher(output == null ? "" : output);
+        if (!match.find()) return lastLine(output);
+        return match.group(1)
+                .replace("\\n", " ")
+                .replace("\\r", " ")
+                .replace("\\t", " ")
+                .replace("\\\"", "\"")
+                .replace("\\\\", "\\");
     }
 
     static int remainingFiles(int total, int uploaded, int skipped) {
@@ -331,38 +345,6 @@ final class BackupRunner {
         }
     }
 
-    static String stableRootName(String name, String sourceValue) {
-        MessageDigest digest;
-        try {
-            digest = MessageDigest.getInstance("SHA-256");
-        } catch (NoSuchAlgorithmException error) {
-            throw new IllegalStateException("SHA-256 unavailable", error);
-        }
-        StringBuilder suffix = new StringBuilder();
-        for (byte value : digest.digest(sourceValue.getBytes(StandardCharsets.UTF_8))) {
-            suffix.append(String.format("%02x", value & 0xff));
-        }
-        return truncateUtf8(name, 160) + "-" + suffix;
-    }
-
-    private static String truncateUtf8(String value, int maxBytes) {
-        int end = 0;
-        int bytes = 0;
-        while (end < value.length()) {
-            int codePoint = value.codePointAt(end);
-            int codePointBytes = new String(Character.toChars(codePoint))
-                    .getBytes(StandardCharsets.UTF_8).length;
-            if (bytes + codePointBytes > maxBytes) break;
-            bytes += codePointBytes;
-            end += Character.charCount(codePoint);
-        }
-        return value.substring(0, end);
-    }
-
-    private File stableRoot(File staging, String name, String sourceValue) throws IOException {
-        return safeStageChild(staging, staging, stableRootName(name, sourceValue));
-    }
-
     static File safeStageChild(File stagingRoot, File parent, String name) throws IOException {
         if (name == null || name.isEmpty() || name.equals(".") || name.equals("..")
                 || name.indexOf('/') >= 0 || name.indexOf('\0') >= 0) {
@@ -401,7 +383,7 @@ final class BackupRunner {
         progress.accept(value);
     }
 
-    private String lastLine(String value) {
+    private static String lastLine(String value) {
         if (value == null || value.trim().isEmpty()) return "Proton Drive command failed";
         String[] lines = value.trim().split("\\R");
         return lines[lines.length - 1];

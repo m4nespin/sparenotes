@@ -67,20 +67,15 @@ public final class BackupRunnerTest {
     }
 
     @Test
-    public void sourceRootsUseStableCollisionResistantNames() {
-        String first = BackupRunner.stableRootName("Notes", "content://provider/tree/first");
-        String repeated = BackupRunner.stableRootName("Notes", "content://provider/tree/first");
-        String second = BackupRunner.stableRootName("Notes", "content://provider/tree/second");
+    public void sourceRootNameIsNotChanged() throws Exception {
+        File staging = temporary.newFolder("source-root");
 
-        assertEquals(first, repeated);
-        assertFalse(first.equals(second));
-        assertTrue(first.startsWith("Notes-"));
-        assertEquals("Notes-".length() + 64, first.length());
+        assertEquals("Notes", BackupRunner.safeStageChild(staging, staging, "Notes").getName());
     }
 
     @Test
-    public void stableRootMigrationUsesNewFingerprintNamespace() {
-        assertEquals("v2\ncontent://provider/tree/notes\nfolder/note.pdf",
+    public void plainRootMigrationUsesNewFingerprintNamespace() {
+        assertEquals("v3\ncontent://provider/tree/notes\nfolder/note.pdf",
                 SpareNotesStore.fingerprintKey(
                         "content://provider/tree/notes", "folder/note.pdf"));
     }
@@ -96,6 +91,14 @@ public final class BackupRunnerTest {
     public void readsRemoteSkipsFromTransferSummary() throws Exception {
         assertEquals(7, BackupRunner.remotelySkipped(
                 "{\"transferredItems\":2,\"skippedItems\":7,\"failedItems\":0}", 9));
+    }
+
+    @Test
+    public void reportsFirstUploadFailureInsteadOfSummaryCount() {
+        assertEquals("NetworkError: fetch failed", BackupRunner.uploadFailure(
+                "{\"failedItems\":12,\"failures\":[{\"name\":\"note.pdf\","
+                        + "\"error\":\"NetworkError: fetch failed\"}]}\n"
+                        + "12 item(s) failed to upload"));
     }
 
     @Test

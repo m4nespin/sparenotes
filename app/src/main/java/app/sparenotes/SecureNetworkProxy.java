@@ -18,19 +18,19 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 final class SecureNetworkProxy implements AutoCloseable {
     private static final int MAX_HEADER_BYTES = 16 * 1024;
+    // Proton CLI can upload five files with five blocks in flight per file.
+    static final int MAX_CLIENTS = 32;
 
     private final Network network;
     private final ServerSocket server;
-    private final ExecutorService workers = Executors.newCachedThreadPool(runnable -> {
-        Thread thread = new Thread(runnable, "SpareNotes-proxy-worker");
-        thread.setDaemon(true);
-        return thread;
-    });
+    private final ExecutorService workers = newWorkerPool();
     private final Set<Socket> sockets = ConcurrentHashMap.newKeySet();
     private final Thread acceptThread;
     private final String authorization;
@@ -64,10 +64,9 @@ final class SecureNetworkProxy implements AutoCloseable {
                 sockets.add(client);
                 try {
                     workers.execute(() -> handle(client));
-                } catch (RuntimeException error) {
+                } catch (RejectedExecutionException error) {
                     sockets.remove(client);
                     close(client);
-                    throw error;
                 }
             } catch (Exception error) {
                 if (!closed) android.util.Log.e("SpareNotes", "Secure proxy failed", error);
@@ -93,9 +92,11 @@ final class SecureNetworkProxy implements AutoCloseable {
                     "HTTP/1.1 200 Connection Established\r\n\r\n".getBytes(StandardCharsets.US_ASCII));
             client.getOutputStream().flush();
             Socket tunnel = upstream;
-            Future<?> outbound = workers.submit(() -> pipe(client, tunnel));
+            Thread outbound = new Thread(() -> pipe(client, tunnel), "SpareNotes-proxy-tunnel");
+            outbound.setDaemon(true);
+            outbound.start();
             pipe(tunnel, client);
-            outbound.cancel(true);
+            outbound.interrupt();
         } catch (Exception error) {
             try {
                 client.getOutputStream().write("HTTP/1.1 502 Bad Gateway\r\nConnection: close\r\n\r\n"
@@ -165,6 +166,15 @@ final class SecureNetworkProxy implements AutoCloseable {
             if (state == 4) return value.toString(StandardCharsets.US_ASCII.name());
         }
         throw new IllegalStateException("Proxy request header is too large");
+    }
+
+    static ExecutorService newWorkerPool() {
+        return new ThreadPoolExecutor(0, MAX_CLIENTS, 30, TimeUnit.SECONDS,
+                new SynchronousQueue<>(), runnable -> {
+                    Thread thread = new Thread(runnable, "SpareNotes-proxy-worker");
+                    thread.setDaemon(true);
+                    return thread;
+                });
     }
 
     private static void pipe(Socket inputSocket, Socket outputSocket) {
